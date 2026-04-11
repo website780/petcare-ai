@@ -403,9 +403,9 @@ export default function Home() {
                   setShowUploader(true);
                 }
               }}
-              className="text-xl px-12 py-8 shadow-2xl shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-2 hover:scale-105 active:scale-95 transition-all duration-300 ease-out rounded-full group mt-8"
+              className="text-xl px-12 py-8 bg-[#0F172A] hover:bg-[#1e293b] text-white border-transparent shadow-[0_20px_50px_rgba(15,23,42,0.3)] hover:shadow-[0_25px_60px_rgba(15,23,42,0.5)] hover:-translate-y-2 hover:scale-105 active:scale-95 transition-all duration-300 ease-out rounded-full group mt-8"
             >
-              <Heart className="mr-3 h-7 w-7 group-hover:scale-125 group-hover:text-pink-200 transition-transform duration-300 animate-pulse" />
+              <Heart className="mr-3 h-7 w-7 group-hover:scale-125 transition-transform duration-300 animate-pulse" />
               <span className="font-bold tracking-wide">Get Started</span>
             </Button>
 
