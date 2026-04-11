@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool } from "@neondatabase/serverless";
-import { type Pet, type InsertPet, type Reminder, type InsertReminder, type User, type InsertUser, type VetConsultation, type InsertVetConsultation, type GroomingAppointment, type InsertGroomingAppointment, type TrainingAppointment, type InsertTrainingAppointment, type InsurancePolicy, type InsertInsurancePolicy, type InsuranceClaim, type InsertInsuranceClaim, type PetExpense, type InsertPetExpense, type PetPortrait, type InsertPetPortrait, type StandaloneScan, type StandaloneVetChat } from "@shared/schema";
-import { pets, users, reminders, vetConsultations, groomingAppointments, trainingAppointments, insurancePolicies, insuranceClaims, petExpenses, petPortraits, standaloneScans, standaloneVetChats } from "@shared/schema";
+import { type Pet, type InsertPet, type Reminder, type InsertReminder, type User, type InsertUser, type VetConsultation, type InsertVetConsultation, type GroomingAppointment, type InsertGroomingAppointment, type TrainingAppointment, type InsertTrainingAppointment, type InsurancePolicy, type InsertInsurancePolicy, type InsuranceClaim, type InsertInsuranceClaim, type PetExpense, type InsertPetExpense, type PetPortrait, type InsertPetPortrait, type StandaloneScan, type StandaloneVetChat } from "@shared/schema.js";
+import { pets, users, reminders, vetConsultations, groomingAppointments, trainingAppointments, insurancePolicies, insuranceClaims, petExpenses, petPortraits, standaloneScans, standaloneVetChats } from "@shared/schema.js";
 import { eq, and, desc, sql } from "drizzle-orm";
 import ws from "ws";
 
@@ -10,7 +10,14 @@ if (!global.WebSocket) {
   (global as any).WebSocket = ws;
 }
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+if (!process.env.DATABASE_URL) {
+  console.log("WARNING: DATABASE_URL is not set. Database operations will fail.");
+}
+
+const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL || "",
+  connectionTimeoutMillis: 5000 
+});
 const db = drizzle(pool, { logger: true });
 
 export interface IStorage {

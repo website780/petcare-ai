@@ -1,13 +1,13 @@
 import express, { type Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 import OpenAI from "openai";
-import { analyzeImageResponseSchema, insertReminderSchema, insertVetConsultationSchema, insertInsurancePolicySchema, insertInsuranceClaimSchema, insertPetExpenseSchema } from "@shared/schema";
+import { analyzeImageResponseSchema, insertReminderSchema, insertVetConsultationSchema, insertInsurancePolicySchema, insertInsuranceClaimSchema, insertPetExpenseSchema } from "@shared/schema.js";
 import { z } from "zod";
 import fetch from "node-fetch";
-import { insertGroomingAppointmentSchema } from "@shared/schema";
-import { insertTrainingAppointmentSchema } from "@shared/schema";
-import { generateTrainingPlan, generateNutritionPlan, generatePersonalizedNutrition, generateVaccinationPlan, analyzePetBasic } from "./lib/openai"; // Import the functions
+import { insertGroomingAppointmentSchema } from "@shared/schema.js";
+import { insertTrainingAppointmentSchema } from "@shared/schema.js";
+import { generateTrainingPlan, generateNutritionPlan, generatePersonalizedNutrition, generateVaccinationPlan, analyzePetBasic } from "./lib/openai.js"; // Import the functions
 import Stripe from "stripe";
 
 // Sanitize Secret Key (handles multi-line values from .env)
