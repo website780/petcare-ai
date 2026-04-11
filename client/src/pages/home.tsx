@@ -13,8 +13,8 @@ import { useAuth } from "@/contexts/auth-context";
 import petCareImage from "../assets/pet-care.png";
 import { Header } from "@/components/Header";
 
-const MAX_INITIAL_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB for initial pet creation
-const INITIAL_COMPRESSION_QUALITY = 0.9; // 90% quality for initial photos
+const MAX_INITIAL_IMAGE_SIZE = 15 * 1024 * 1024; // 15MB for initial pet creation
+const INITIAL_COMPRESSION_QUALITY = 0.75; // Balanced for Vercel 4.5MB payload limit
 
 async function compressImage(file: File, quality = INITIAL_COMPRESSION_QUALITY): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -31,7 +31,7 @@ async function compressImage(file: File, quality = INITIAL_COMPRESSION_QUALITY):
 
         let width = img.width;
         let height = img.height;
-        const maxDimension = 2048; // Maintain high resolution for initial photos
+        const maxDimension = 1536; // Optimized to prevent Vercel 4.5MB limit crashes
 
         if (width > height && width > maxDimension) {
           height = (height * maxDimension) / width;

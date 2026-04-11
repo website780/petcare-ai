@@ -480,10 +480,16 @@ export default function Features() {
               Experience the most comprehensive pet care platform powered by advanced AI technology.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+              <button 
+                onClick={() => setLocation("/")}
+                className="bg-[#0F172A] text-white px-10 py-4 rounded-full font-bold shadow-[0_20px_50px_rgba(15,23,42,0.3)] hover:shadow-[0_25px_60px_rgba(15,23,42,0.5)] hover:-translate-y-1 transition-all duration-300"
+              >
                 Get Started
               </button>
-              <button className="border border-gray-300 text-gray-700 px-8 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
+              <button 
+                onClick={() => setLocation("/")}
+                className="border border-gray-300 text-gray-700 px-10 py-4 rounded-full font-bold hover:bg-gray-50 transition-all duration-300"
+              >
                 Learn More
               </button>
             </div>
