@@ -93,7 +93,7 @@ export default function MarketingPlanPage() {
     const options = {
       margin: 10,
       filename: 'PetCare_AI_Marketing_Plan.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { 
         scale: 2, 
         useCORS: true,
@@ -138,6 +138,7 @@ export default function MarketingPlanPage() {
         }
         
         // Clone the content after all tabs have been rendered
+        if (!contentRef.current) return;
         const contentClone = contentRef.current.cloneNode(true) as HTMLElement;
         
         // Find and remove unwanted elements
@@ -227,6 +228,7 @@ export default function MarketingPlanPage() {
         }
         
         // Clone the content div after all tabs have been rendered
+        if (!contentRef.current) return;
         const contentClone = contentRef.current.cloneNode(true) as HTMLElement;
         
         // Find and remove unwanted elements

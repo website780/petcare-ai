@@ -210,7 +210,7 @@ export default function Home() {
           foodRecommendations: analysis.foodRecommendations ?? [],
           feedingSchedule: analysis.feedingSchedule ?? null,
           moodRecommendations: analysis.moodRecommendations ?? [],
-          userId: user?.dbId // Using the numeric database ID from sync
+          userId: user?.dbId || 0 // Using the numeric database ID from sync
         });
         await refreshUser();
       } catch (error) {
