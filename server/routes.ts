@@ -143,20 +143,20 @@ export function registerRoutes(app: Express): Server {
   
   // Google Maps Places API search endpoint for pet service providers (groomers, vets, trainers)
   app.get("/api/places/search", async (req, res) => {
+    const serviceTypeStr =
+      typeof req.query.serviceType === "string" ? req.query.serviceType : "groomer";
     try {
-      const { location, petType, serviceType = 'groomer' } = req.query;
-      
-      if (!location || typeof location !== 'string') {
+      const { location, petType } = req.query;
+
+      if (!location || typeof location !== "string") {
         return res.status(400).json({ error: "Location is required" });
       }
-      
+
       if (!process.env.GOOGLE_MAPS_API_KEY) {
         return res.status(500).json({ error: "Google Maps API key is required but not configured" });
       }
-      
-      // Convert serviceType to string if it's not already
-      const serviceTypeStr = typeof serviceType === 'string' ? serviceType : 'groomer';
-      const validServiceTypes = ['groomer', 'vet', 'trainer'];
+
+      const validServiceTypes = ["groomer", "vet", "trainer"];
       
       // Validate service type
       if (!validServiceTypes.includes(serviceTypeStr)) {
@@ -589,11 +589,19 @@ export function registerRoutes(app: Express): Server {
 
   // Stripe Webhook
   app.post("/api/stripe/webhook", express.raw({type: 'application/json'}), async (req, res) => {
-    const sig = req.headers['stripe-signature'];
+    const sig = req.headers["stripe-signature"];
+    const signature = Array.isArray(sig) ? sig[0] : sig;
     let event;
 
     try {
-      event = stripe.webhooks.constructEvent(req.body, sig!, process.env.STRIPE_WEBHOOK_SECRET || "");
+      if (!signature || typeof signature !== "string") {
+        return res.status(400).send("Missing stripe-signature header");
+      }
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        signature,
+        process.env.STRIPE_WEBHOOK_SECRET || "",
+      );
     } catch (err) {
       return res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -1171,7 +1179,6 @@ Pet Owner: ${message}`
         // If plan generation fails, return the pet anyway but with default details
         console.error("Error generating training, nutrition, or vaccination plan:", error);
         const updatedPet = await storage.updatePet(pet.id, {
-          ...pet,
           trainingDetails: [
             "Basic Commands: Start with sit, stay, and come",
             "Leash Training: Practice walking without pulling",
@@ -1945,7 +1952,7 @@ Always respond in valid JSON format.`
         quality: "standard",
       });
 
-      const generatedImageUrl = imageResponse.data[0]?.url;
+      const generatedImageUrl = imageResponse.data?.[0]?.url;
 
       if (!generatedImageUrl) {
         throw new Error("Failed to generate portrait image");

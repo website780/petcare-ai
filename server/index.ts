@@ -105,9 +105,9 @@ app.use((req, res, next) => {
 
   // Only start the listener in development or non-Vercel environments
   if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
-    const PORT = process.env.PORT || 5000;
-    server.listen(PORT, "0.0.0.0", () => {
-      log(`Server started successfully, serving on port ${PORT}`);
+    const port = Number(process.env.PORT) || 5000;
+    server.listen(port, "0.0.0.0", () => {
+      log(`Server started successfully, serving on port ${port}`);
     });
   }
 })();
