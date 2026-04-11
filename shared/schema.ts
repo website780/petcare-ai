@@ -179,7 +179,6 @@ export const usersRelations = relations(users, ({ many }) => ({
   trainingAppointments: many(trainingAppointments),
   insurancePolicies: many(insurancePolicies),
   insuranceClaims: many(insuranceClaims),
-  insuranceClaims: many(insuranceClaims),
   petExpenses: many(petExpenses),
   standaloneScans: many(standaloneScans),
   standaloneVetChats: many(standaloneVetChats),
@@ -331,6 +330,7 @@ export const analyzeImageResponseSchema = z.object({
     url: z.string(),
     title: z.string()
   })),
+  trainingSchedule: z.string().nullable().optional(),
   exerciseType: z.string(),
   trainingProgress: z.string(),
 });

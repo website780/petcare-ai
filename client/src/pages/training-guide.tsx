@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,15 +43,21 @@ export default function TrainingGuidePage() {
 
   const { data: pet, isLoading } = useQuery<Pet>({
     queryKey: [`/api/pets/${id}`],
-    onSuccess: (data) => {
-      console.log("Fetched pet data:", data);
-      // Initialize training data if not present
-      if (!data.trainingDetails || !data.exerciseNeeds) {
-        console.log("Training data missing, initializing...");
-        initializeTraining.mutate();
-      }
-    },
   });
+
+  const initTrainingSent = useRef(false);
+  useEffect(() => {
+    initTrainingSent.current = false;
+  }, [id]);
+
+  useEffect(() => {
+    if (!pet || initTrainingSent.current) return;
+    if (!pet.trainingDetails || !pet.exerciseNeeds) {
+      console.log("Training data missing, initializing...");
+      initTrainingSent.current = true;
+      initializeTraining.mutate();
+    }
+  }, [pet, id]);
 
   if (isLoading || !pet) {
     return (

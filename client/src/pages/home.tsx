@@ -200,6 +200,7 @@ export default function Home() {
           gender: analysis.gender ?? null,
           imageUrl: imageToUpload,
           imageGallery: [],
+          lastMoodUpdate: null,
           careRecommendations: analysis.careRecommendations ?? [],
           weight: analysis.weight ?? null,
           size: analysis.size ?? null,
