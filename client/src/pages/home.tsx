@@ -10,7 +10,7 @@ import { SiFacebook } from "react-icons/si";
 import { type Pet, type AnalyzeImageResponse, insertPetSchema } from "@shared/schema";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
-import petCareImage from "../assets/Take care of your best friend.png";
+import petCareImage from "../assets/pet-care.png";
 import { Header } from "@/components/Header";
 
 const MAX_INITIAL_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB for initial pet creation
@@ -355,9 +355,9 @@ export default function Home() {
             <Button
               size="lg"
               onClick={signInWithGoogle}
-              className="text-xl px-8 py-8 shadow-xl shadow-primary/30 hover:shadow-2xl hover:shadow-primary/50 hover:-translate-y-2 active:translate-y-0 active:scale-95 transition-all duration-300 ease-out rounded-full group"
+              className="text-xl px-8 py-8 bg-[#0F172A] hover:bg-[#1e293b] text-white border-transparent shadow-[0_20px_50px_rgba(15,23,42,0.3)] hover:shadow-[0_25px_60px_rgba(15,23,42,0.5)] hover:-translate-y-2 active:translate-y-0 active:scale-95 transition-all duration-300 ease-out rounded-full group"
             >
-              <Heart className="mr-3 h-6 w-6 group-hover:scale-125 group-hover:text-pink-200 transition-transform duration-300" />
+              <Heart className="mr-3 h-6 w-6 group-hover:scale-125 transition-transform duration-300" />
               Sign in with Google
             </Button>
 
@@ -365,7 +365,7 @@ export default function Home() {
               size="lg"
               onClick={signInWithFacebook}
               variant="outline"
-              className="text-xl px-8 py-8 bg-[#1877F2] border-transparent shadow-xl shadow-[#1877F2]/30 text-white hover:bg-[#1877F2]/90 hover:shadow-2xl hover:shadow-[#1877F2]/50 hover:-translate-y-2 active:translate-y-0 active:scale-95 transition-all duration-300 ease-out rounded-full group"
+              className="text-xl px-8 py-8 bg-[#1877F2] border-transparent shadow-[0_20px_50px_rgba(24,119,242,0.3)] hover:shadow-[0_25px_60px_rgba(24,119,242,0.5)] text-white hover:bg-[#1877F2]/90 hover:shadow-2xl hover:-translate-y-2 active:translate-y-0 active:scale-95 transition-all duration-300 ease-out rounded-full group"
             >
               <SiFacebook className="mr-3 h-6 w-6 group-hover:scale-125 transition-transform duration-300" />
               Sign in with Facebook

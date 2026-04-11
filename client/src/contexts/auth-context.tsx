@@ -83,6 +83,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      if (error.code === 'auth/unauthorized-domain') {
+        toast({
+          variant: "destructive",
+          title: "Domain Not Authorized",
+          description: "Please add this Vercel domain to your Firebase Console under Authentication > Settings > Authorized Domains.",
+        });
+        return;
+      }
+
       const errorMessage = error.code === 'auth/network-request-failed'
         ? "Network error. Please check your internet connection."
         : "Failed to sign in with Google. Please try again.";

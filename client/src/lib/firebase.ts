@@ -9,6 +9,10 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+if (!import.meta.env.VITE_FIREBASE_API_KEY || !import.meta.env.VITE_FIREBASE_PROJECT_ID) {
+  console.error("FIREBASE ERROR: Environment variables VITE_FIREBASE_API_KEY or VITE_FIREBASE_PROJECT_ID are missing!");
+}
+
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const facebookProvider = new FacebookAuthProvider();
