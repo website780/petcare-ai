@@ -61,61 +61,61 @@ function Router() {
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         
         {/* Core Pet Care Routes */}
-        <Route 
-          path="/pet/:id" 
-          component={(params) => {
-            const Component = () => <PetProfile {...params} />;
+        <Route
+          path="/pet/:id"
+          component={() => {
+            const Component = () => <PetProfile />;
             return <PrivateRoute component={Component} />;
-          }} 
+          }}
         />
-        <Route 
-          path="/pet/:id/nutrition" 
-          component={(params) => {
-            const Component = () => <NutritionalGuide {...params} />;
+        <Route
+          path="/pet/:id/nutrition"
+          component={() => {
+            const Component = () => <NutritionalGuide />;
             return <PrivateRoute component={Component} />;
-          }} 
+          }}
         />
-        <Route 
-          path="/pet/:id/vet" 
-          component={(params) => {
-            const Component = () => <VetAssessment {...params} />;
+        <Route
+          path="/pet/:id/vet"
+          component={() => {
+            const Component = () => <VetAssessment />;
             return <PrivateRoute component={Component} />;
-          }} 
+          }}
         />
-        <Route 
-          path="/pet/:id/grooming" 
-          component={(params) => {
-            const Component = () => <GroomingGuide {...params} />;
+        <Route
+          path="/pet/:id/grooming"
+          component={() => {
+            const Component = () => <GroomingGuide />;
             return <PrivateRoute component={Component} />;
-          }} 
+          }}
         />
-        <Route 
-          path="/pet/:id/schedule" 
-          component={(params) => {
-            const Component = () => <RemindersSchedule {...params} />;
+        <Route
+          path="/pet/:id/schedule"
+          component={() => {
+            const Component = () => <RemindersSchedule />;
             return <PrivateRoute component={Component} />;
-          }} 
+          }}
         />
-        <Route 
-          path="/pet/:id/training" 
-          component={(params) => {
-            const Component = () => <TrainingGuide {...params} />;
+        <Route
+          path="/pet/:id/training"
+          component={() => {
+            const Component = () => <TrainingGuide />;
             return <PrivateRoute component={Component} />;
-          }} 
+          }}
         />
-        <Route 
-          path="/pet/:id/details" 
-          component={(params) => {
-            const Component = () => <PetDetails {...params} />;
+        <Route
+          path="/pet/:id/details"
+          component={() => {
+            const Component = () => <PetDetails />;
             return <PrivateRoute component={Component} />;
-          }} 
+          }}
         />
-        <Route 
-          path="/pet/:id/vaccinations" 
-          component={(params) => {
-            const Component = () => <VaccinationRecords {...params} />;
+        <Route
+          path="/pet/:id/vaccinations"
+          component={() => {
+            const Component = () => <VaccinationRecords />;
             return <PrivateRoute component={Component} />;
-          }} 
+          }}
         />
         <Route 
           path="/profile" 

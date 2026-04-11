@@ -62,7 +62,12 @@ export default function UserProfile() {
             <div className="space-y-2">
               <div className="flex items-center space-x-2 text-muted-foreground">
                 <Calendar className="h-4 w-4" />
-                <span>Joined {format(new Date(user.metadata.creationTime), 'MMMM d, yyyy')}</span>
+                <span>
+                  Joined{" "}
+                  {user.metadata?.creationTime
+                    ? format(new Date(user.metadata.creationTime), "MMMM d, yyyy")
+                    : "—"}
+                </span>
               </div>
             </div>
 
