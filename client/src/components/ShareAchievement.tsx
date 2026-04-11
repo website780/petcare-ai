@@ -135,7 +135,7 @@ export function ShareAchievement({ pet, achievement, shareImage }: ShareAchievem
 
       <Separator />
 
-      {navigator.share && (
+      {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
         <Button
           className="w-full"
           onClick={handleShare}

@@ -80,7 +80,7 @@ export function InjuryScanner() {
     try {
       const base64Data = (await new Promise((resolve) => {
         const r = new FileReader();
-        r.onload = () => resolve(r.result);
+        r.onload = () => resolve(r.result as string);
         r.readAsDataURL(file);
       })) as string;
 

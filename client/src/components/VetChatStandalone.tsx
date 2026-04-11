@@ -128,7 +128,10 @@ export function VetChatStandalone() {
     try {
       const base64Data = (await new Promise((resolve) => {
         const r = new FileReader();
-        r.onload = () => resolve(r.result);
+        r.onload = () => {
+          if (typeof r.result === "string") resolve(r.result);
+          else resolve("");
+        };
         r.readAsDataURL(file);
       })) as string;
 
