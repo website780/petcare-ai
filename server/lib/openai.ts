@@ -2,7 +2,12 @@ import OpenAI from "openai";
 import { Pet } from "../../shared/schema.js";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Safe OpenAI initialization to prevent Vercel crashes during startup
+const apiKey = process.env.OPENAI_API_KEY;
+if (!apiKey) {
+  console.log("WARNING: OPENAI_API_KEY is not set. AI features will fail.");
+}
+const openai = new OpenAI({ apiKey: apiKey || "sk_test_placeholder" });
 
 export async function generateTrainingPlan(pet: Pet) {
   try {
