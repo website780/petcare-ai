@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool } from "@neondatabase/serverless";
-import { type Pet, type InsertPet, type Reminder, type InsertReminder, type User, type InsertUser, type VetConsultation, type InsertVetConsultation, type GroomingAppointment, type InsertGroomingAppointment, type TrainingAppointment, type InsertTrainingAppointment, type InsurancePolicy, type InsertInsurancePolicy, type InsuranceClaim, type InsertInsuranceClaim, type PetExpense, type InsertPetExpense, type PetPortrait, type InsertPetPortrait, type StandaloneScan, type StandaloneVetChat } from "@shared/schema";
-import { pets, users, reminders, vetConsultations, groomingAppointments, trainingAppointments, insurancePolicies, insuranceClaims, petExpenses, petPortraits, standaloneScans, standaloneVetChats } from "@shared/schema";
+import { type Pet, type InsertPet, type Reminder, type InsertReminder, type User, type InsertUser, type VetConsultation, type InsertVetConsultation, type GroomingAppointment, type InsertGroomingAppointment, type TrainingAppointment, type InsertTrainingAppointment, type InsurancePolicy, type InsertInsurancePolicy, type InsuranceClaim, type InsertInsuranceClaim, type PetExpense, type InsertPetExpense, type PetPortrait, type InsertPetPortrait, type StandaloneScan, type StandaloneVetChat } from "@shared/schema.js";
+import { pets, users, reminders, vetConsultations, groomingAppointments, trainingAppointments, insurancePolicies, insuranceClaims, petExpenses, petPortraits, standaloneScans, standaloneVetChats } from "@shared/schema.js";
 import { eq, and, desc, sql } from "drizzle-orm";
 import ws from "ws";
 
