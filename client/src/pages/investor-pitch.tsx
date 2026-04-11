@@ -47,7 +47,7 @@ export default function InvestorPitch() {
         filename: 'Pet-Care-AI-Investor-Pitch.pdf',
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' as const }
       };
       
       await html2pdf().set(opt).from(contentRef.current).save();

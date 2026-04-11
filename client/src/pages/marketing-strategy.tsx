@@ -48,7 +48,7 @@ export default function MarketingStrategy() {
         jsPDF: { 
           unit: 'in', 
           format: 'a4', 
-          orientation: 'portrait' 
+          orientation: 'portrait' as const
         }
       };
       

@@ -105,7 +105,7 @@ export default function MarketingPlanPage() {
         letterRendering: true,
         allowTaint: true
       },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
     };
     
     try {
