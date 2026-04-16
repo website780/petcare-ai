@@ -8,7 +8,7 @@ export default function VetStandalonePage() {
       <Header />
       <div className="container max-w-5xl mx-auto px-4 py-12">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 mb-4 text-red-500">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#ff6b4a]/10 mb-4 text-[#ff6b4a]">
             <Stethoscope className="w-8 h-8" />
           </div>
           <h1 className="text-4xl font-bold tracking-tight mb-4">24/7 AI Veterinary Assistant</h1>

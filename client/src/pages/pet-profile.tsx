@@ -12,6 +12,7 @@ import { type Pet } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useDropzone } from "react-dropzone";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/hooks/use-auth"; // Added import for useAuth
 import { ShareMissingPet } from "@/components/ShareMissingPet"; // Added import for ShareMissingPet
@@ -287,10 +288,10 @@ export default function PetProfile() {
                           name="name"
                           defaultValue={pet.name}
                           required
-                          className="text-lg p-3"
+                          className="text-lg h-12 bg-white/50 dark:bg-black/50 backdrop-blur-sm border-2"
                         />
                       </div>
-                      <Button type="submit" className="w-full py-6">
+                      <Button type="submit" className="w-full py-6 bg-[#ff6b4a] hover:bg-[#e05a3b]">
                         Save Changes
                       </Button>
                     </form>
@@ -378,21 +379,20 @@ export default function PetProfile() {
                           className="space-y-4"
                         >
                           <div className="space-y-2">
-                            <label htmlFor="gender" className="text-sm font-medium">
-                              Gender
-                            </label>
-                            <select
-                              id="gender"
-                              name="gender"
-                              defaultValue={pet.gender || ''}
-                              className="w-full p-2 border rounded-md"
+                             <Select 
+                              defaultValue={pet.gender || ''} 
+                              onValueChange={(val) => updatePetDetails.mutate({ gender: val })}
                             >
-                              <option value="">Select gender</option>
-                              <option value="male">Male</option>
-                              <option value="female">Female</option>
-                            </select>
+                              <SelectTrigger className="w-full h-11 bg-white/50 dark:bg-black/50 backdrop-blur-sm border-2">
+                                <SelectValue placeholder="Select gender" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="male">Male</SelectItem>
+                                <SelectItem value="female">Female</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
-                          <Button type="submit" className="w-full py-6">
+                          <Button type="button" onClick={() => (document.querySelector('dialog') as any)?.close()} className="w-full py-6 bg-[#ff6b4a] hover:bg-[#e05a3b]">
                             Save Changes
                           </Button>
                         </form>
@@ -469,24 +469,23 @@ export default function PetProfile() {
                           className="space-y-4"
                         >
                           <div className="space-y-2">
-                            <label htmlFor="size" className="text-sm font-medium">
-                              Size
-                            </label>
-                            <select
-                              id="size"
-                              name="size"
-                              defaultValue={pet.size || ''}
-                              className="w-full p-2 border rounded-md"
+                             <Select 
+                              defaultValue={pet.size || ''} 
+                              onValueChange={(val) => updatePetDetails.mutate({ size: val })}
                             >
-                              <option value="">Select size</option>
-                              <option value="Tiny">Tiny</option>
-                              <option value="Small">Small</option>
-                              <option value="Medium">Medium</option>
-                              <option value="Large">Large</option>
-                              <option value="Extra Large">Extra Large</option>
-                            </select>
+                              <SelectTrigger className="w-full h-11 bg-white/50 dark:bg-black/50 backdrop-blur-sm border-2">
+                                <SelectValue placeholder="Select size" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Tiny">Tiny</SelectItem>
+                                <SelectItem value="Small">Small</SelectItem>
+                                <SelectItem value="Medium">Medium</SelectItem>
+                                <SelectItem value="Large">Large</SelectItem>
+                                <SelectItem value="Extra Large">Extra Large</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
-                          <Button type="submit" className="w-full py-6">
+                          <Button type="button" onClick={() => (document.querySelector('dialog') as any)?.close()} className="w-full py-6 bg-[#ff6b4a] hover:bg-[#e05a3b]">
                             Save Changes
                           </Button>
                         </form>

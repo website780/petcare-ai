@@ -374,12 +374,6 @@ export function registerRoutes(app: Express): Server {
         if (Number(targetUser.freeScanUsed) === 1) {
           return res.status(403).json({ error: "Free scan limit reached. Please upgrade to continue." });
         }
-        
-        // If they use this for free, it consumes the platform's 1 free credit
-        if (!targetUser.freeScanUsed) {
-          console.log(`[SCAN-NORMAL] Consuming free credit for user ${targetUser.id}`);
-          await storage.updateUserCredits(targetUser.id, 'freeScanUsed', 1);
-        }
       }
 
       console.log("Starting image analysis with OpenAI Vision API");
@@ -447,6 +441,13 @@ export function registerRoutes(app: Express): Server {
       }
 
       const analysis = JSON.parse(content);
+
+      // NUCLEAR FIX: Only decrement credit AFTER successful AI response
+      if (targetUser && !targetUser.freeScanUsed) {
+        console.log(`[SCAN-SUCCESS] Consuming credit for user ${targetUser.id}`);
+        await storage.updateUserCredits(targetUser.id, 'freeScanUsed', 1);
+      }
+
       res.json(analysis);
     } catch (error: any) {
       console.error("Error analyzing image:", error);
@@ -510,18 +511,30 @@ export function registerRoutes(app: Express): Server {
       console.log(`[Stripe] Creating checkout for type: ${type}, userId: ${userId}`);
       let baseLink = "";
       
-      // For Portraits, we use dynamic Checkout Sessions to support variable pricing
-      if (type === "portrait_hd" || type === "portrait_print") {
-        let amount = 900; // Default for HD download
-        let description = "AI Pet Portrait - HD Download";
+      // 1. SMART SESSIONS: Dynamic checkout for most types
+      if (type.startsWith("portrait") || type === "vet_chat_pack" || type === "injury_report") {
+        let amount = 1500; // Default $15.00
+        let description = "Pet AI Feature";
 
-        if (type === "portrait_print") {
-          const prices: { [key: string]: number } = {
-            "5x5": 1500, "8x8": 2500, "12x12": 3500,
-            "16x16": 4900, "24x24": 6900, "36x36": 9900
-          };
-          amount = prices[metadata?.printSize] || 1500;
-          description = `AI Pet Portrait - Premium Canvas Print (${metadata?.printSize}")`;
+        if (type === "injury_report") {
+          amount = 499; // $4.99 (Unique ID for Injury)
+          description = "Pet AI Companion - Professional Injury Analysis";
+        } else if (type === "vet_chat_pack") {
+          amount = 1500; // $15.00
+          description = "Pet AI Companion - 5 Expert AI Vet Questions";
+        } else if (type.startsWith("portrait")) {
+          // If it's a simple download (portrait_hd), default to $9.00
+          amount = 900;
+          description = "Pet AI Companion - Professional HD Portrait";
+
+          if (type === "portrait_print") {
+            const prices: Record<string, number> = {
+              "5x5": 1500, "8x8": 2500, "12x12": 3500,
+              "16x16": 4900, "24x24": 6900, "36x36": 9900
+            };
+            amount = prices[metadata?.printSize] || 1500;
+            description = `AI Pet Portrait - Premium Canvas Print (${metadata?.printSize}")`;
+          }
         }
 
         const origin = req.get('origin') || `${req.protocol}://${req.get('host')}`;
@@ -539,28 +552,25 @@ export function registerRoutes(app: Express): Server {
           mode: "payment",
           success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${origin}/cancel`,
-          client_reference_id: `user_${userId || 'unknown'}|portrait_${metadata?.portraitId || 'unknown'}`,
+          client_reference_id: `user_${userId || 'unknown'}${metadata?.portraitId ? `|portrait_${metadata.portraitId}` : ''}${metadata?.scanId ? `|scan_${metadata.scanId}` : ''}|type_${type}`,
           metadata: {
             type: type,
-            portraitId: String(metadata?.portraitId),
-            printSize: metadata?.printSize || ""
+            scanId: String(metadata?.scanId || ""),
+            portraitId: String(metadata?.portraitId || "")
           }
         });
 
         return res.json({ url: session.url });
       }
 
-      // Fallback for types that still use pre-defined Payment Links (Injury, Home)
-      if (type === "injury_report" || type === "home_analysis") {
-        // Use the new STRIPE_LINK if available, otherwise fallback to the specific one
-        baseLink = (process.env.STRIPE_LINK || process.env.STRIPE_LINK_INJURY || "").trim().replace(/^"(.*)"$/, '$1');
-      } else if (type === "vet_chat_pack") {
-        baseLink = process.env.STRIPE_LINK_VET_CHAT || "";
+      // 2. LEGACY PATH: AI Scan remains on the old path ($5.00)
+      if (type === "home_analysis") {
+        baseLink = (process.env.STRIPE_LINK || "").trim().replace(/^"(.*)"$/, '$1');
       }
 
       if (!baseLink || baseLink.trim() === "") {
-        console.error(`[Stripe] Error: Payment link is missing for type: ${type}. Check STRIPE_LINK_INJURY in .env`);
-        return res.status(500).json({ error: "Payment link not configured on server" });
+        console.error(`[Stripe] Error: Fallback link is missing for type: ${type}.`);
+        return res.status(500).json({ error: "Payment configuration missing on server" });
       }
 
       // Force absolute URL and clean whitespace/newlines
@@ -587,6 +597,81 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // SHARED FULFILLMENT LOGIC: Used by both the Webhook and the Success Page manually
+  const fulfillOrder = async (session: Stripe.Checkout.Session, typeHint?: string) => {
+    console.log(`[Stripe-Fulfillment] Starting fulfillment for session: ${session.id}, Hint: ${typeHint}`);
+    
+    // ANTI-EXPLOIT: Check if this session has already been processed
+    const alreadyProcessed = await storage.isPaymentProcessed(session.id);
+    if (alreadyProcessed) {
+      console.warn(`[Stripe-Fulfillment] REJECTED: Session ${session.id} already processed.`);
+      return false; // Stop right here to prevent double-fulfillment
+    }
+    
+    // Extract ID and metadata safely
+    const refId = session.client_reference_id || "";
+    const parts = refId.split('|');
+    let userIdPart = parts.find(p => p.startsWith('user_'))?.replace('user_', '');
+    const scanIdPart = parts.find(p => p.startsWith('scan_'))?.replace('scan_', '');
+    const portraitIdPart = parts.find(p => p.startsWith('portrait_'))?.replace('portrait_', '');
+    
+    // Use the hint if Stripe metadata is missing
+    const typePart = parts.find(p => p.startsWith('type_'))?.replace('type_', '') || session.metadata?.type || typeHint;
+
+    // Consolidated Email Fallback: If userId is missing, look up by email
+    if (!userIdPart && session.customer_details?.email) {
+      console.log(`[Stripe-Fulfillment] No UserID in metadata. Forensic email lookup: ${session.customer_details.email}`);
+      const userFoundByEmail = await storage.getUserByEmail(session.customer_details.email);
+      if (userFoundByEmail) {
+        userIdPart = String(userFoundByEmail.id);
+        console.log(`[Stripe-Fulfillment] Forensic Match! Found User:${userIdPart}`);
+      }
+    }
+
+    console.log(`[Stripe-Fulfillment] Finalizing: User:${userIdPart}, Type:${typePart}, ScanID:${scanIdPart}`);
+
+    // FULFILLMENT EXECUTION
+    let wasFulfilled = false;
+
+    if (scanIdPart) {
+      await storage.updateStandaloneScan(Number(scanIdPart), { isPaid: 1 });
+      wasFulfilled = true;
+    } else if (portraitIdPart) {
+      const type = session.metadata?.type;
+      await storage.updatePetPortrait(Number(portraitIdPart), { 
+        paid: "true",
+        paymentType: type === "portrait_print" ? "print" : "hd_download"
+      });
+      wasFulfilled = true;
+    } else if (userIdPart) {
+      const user = await storage.getUser(Number(userIdPart));
+      if (user) {
+        if (session.amount_total === 1500 || typePart === "vet_chat_pack" || typePart === "vet_chat") {
+          await storage.updateUserCredits(user.id, 'vetChatCredits', (user.vetChatCredits || 0) + 5);
+          wasFulfilled = true;
+        } else if (typePart === "home_analysis") {
+          await storage.updateUserCredits(user.id, 'freeScanUsed', 0);
+          wasFulfilled = true;
+        } else if (typePart === "injury_report") {
+          await storage.updateUserCredits(user.id, 'freeInjuryScanUsed', 0);
+          wasFulfilled = true;
+        }
+      }
+    }
+
+    if (wasFulfilled) {
+      console.log(`[Stripe-Fulfillment] SUCCESS: Fulfillment completed for ID:${userIdPart || scanIdPart}`);
+      // MARK AS PROCESSED: Remember this session ID so it can't be reused
+      if (userIdPart) {
+        await storage.markPaymentProcessed(Number(userIdPart), session.id);
+      }
+      return true;
+    }
+
+    console.warn(`[Stripe-Fulfillment] FAILED: No matching feature found to unlock for session ${session.id}`);
+    return false;
+  };
+
   // Stripe Webhook
   app.post("/api/stripe/webhook", express.raw({type: 'application/json'}), async (req, res) => {
     const sig = req.headers["stripe-signature"];
@@ -607,44 +692,114 @@ export function registerRoutes(app: Express): Server {
     }
 
     if (event.type === 'checkout.session.completed') {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const refId = session.client_reference_id || "";
-      
-      // Decode the client_reference_id (format: user_123|scan_456|type_home_analysis)
-      const parts = refId.split('|');
-      const userIdPart = parts.find(p => p.startsWith('user_'))?.replace('user_', '');
-      const scanIdPart = parts.find(p => p.startsWith('scan_'))?.replace('scan_', '');
-      const portraitIdPart = parts.find(p => p.startsWith('portrait_'))?.replace('portrait_', '');
-      const typePart = parts.find(p => p.startsWith('type_'))?.replace('type_', '') || session.metadata?.type;
-
-      console.log(`[Webhook] Decoded: User:${userIdPart}, Scan:${scanIdPart}, Type:${typePart}`);
-
-      if (scanIdPart) {
-        await storage.updateStandaloneScan(Number(scanIdPart), { isPaid: 1 });
-      } else if (portraitIdPart) {
-        const type = session.metadata?.type;
-        await storage.updatePetPortrait(Number(portraitIdPart), { 
-          paid: "true",
-          paymentType: type === "portrait_print" ? "print" : "hd_download"
-        });
-      } else if (userIdPart) {
-        const user = await storage.getUser(Number(userIdPart));
-        if (user) {
-          // If the amount matches the chat pack ($15.00)
-          if (session.amount_total === 1500 || typePart === "vet_chat_pack") {
-            await storage.updateUserCredits(user.id, 'vetChatCredits', (user.vetChatCredits || 0) + 5);
-          } else if (typePart === "home_analysis") {
-            // Reset scan flag so they can scan again
-            await storage.updateUserCredits(user.id, 'freeScanUsed', 0);
-          } else if (typePart === "injury_report") {
-            // Reset injury scan flag so they can start a new scan
-            await storage.updateUserCredits(user.id, 'freeInjuryScanUsed', 0);
-          }
-        }
-      }
+      await fulfillOrder(event.data.object as Stripe.Checkout.Session);
     }
 
     res.json({ received: true });
+  });
+
+  // VERIFY & FULFILL: Direct endpoint used by SuccessPage.tsx 
+  // This bypasses webhook delays/failures and provides instant gratification
+  app.get("/api/stripe/fulfill-session", async (req, res) => {
+    try {
+      const sessionId = req.query.sessionId as string;
+      if (!sessionId) return res.status(400).send("sessionId required");
+
+      console.log(`[Direct-Fulfillment] Verifying session: ${sessionId}`);
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+      if (session.payment_status === 'paid') {
+        const success = await fulfillOrder(session);
+        console.log(`[Stripe-Success] Found and processed session: ${session.id}`);
+        return res.json({ success, type: session.metadata?.type || "unknown", message: success ? "Your purchase has been fulfilled!" : "Partial match found." });
+      }
+      
+      res.json({ success: false, message: "Payment not verified yet." });
+    } catch (error: any) {
+      console.error("[Direct-Fulfillment] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ULTIMATE FALLBACK: Search recent Stripe sessions by email 
+  app.get("/api/stripe/fulfill-by-email", async (req, res) => {
+    try {
+      const email = req.query.email as string;
+      const typeHint = req.query.type as string; 
+      if (!email) return res.status(400).send("email required");
+
+      console.log(`[Email-Forensics] Searching recent sessions for: ${email}, Hint: ${typeHint}`);
+      
+      const sessions = await stripe.checkout.sessions.list({
+        limit: 30, // Increased limit for better chance of finding it
+        expand: ['data.customer_details']
+      });
+
+      // Find sessions for this email
+      const emailSessions = sessions.data.filter(s => 
+        s.customer_details?.email?.toLowerCase() === email.toLowerCase()
+      );
+
+      if (emailSessions.length === 0) {
+        return res.json({ success: false, message: `No sessions found for ${email}` });
+      }
+
+      // Find the first paid session that HASN'T been processed yet AND is RECENT AND MATCHES TYPE
+      const FIFTEEN_MINUTES_AGO = Math.floor(Date.now() / 1000) - 900;
+      let match = null;
+      
+      for (const s of emailSessions) {
+        if (s.payment_status === 'paid' && s.created >= FIFTEEN_MINUTES_AGO) {
+          const alreadyProcessed = await storage.isPaymentProcessed(s.id);
+          if (alreadyProcessed) continue;
+
+          // TYPE CHECK: Ensure this session is actually for what we are looking for
+          const meta = s.metadata?.type;
+          const refId = s.client_reference_id || "";
+          
+          const isExactMatch = (meta === typeHint || refId.includes(`type_${typeHint}`));
+          const isUntagged = (!meta && !refId.includes('type_')); // If metadata is missing entirely, we allow it
+
+          // PRICE SAFETY: Support taxes/fees by using ranges instead of exact cents
+          let priceMatches = true;
+          const amount = s.amount_total || 0;
+          
+          if (typeHint === "vet_chat_pack" && amount < 1000) priceMatches = false;
+          if ((typeHint === "home_analysis" || typeHint === "injury_report") && amount > 1000) priceMatches = false;
+
+          // FINAL ACCURACY CHECK:
+          // Since Injury reports are now ALWAYS tagged (Smart Sessions), 
+          // we should only fulfill if we find a tag. 
+          // Home Analysis is "Untagged" (Legacy Path) so it gets the fallback.
+          let finalMatch = false;
+          if (isExactMatch) finalMatch = true;
+          
+          if (isUntagged && typeHint === "home_analysis") {
+            // ULTRA-RECENT: For the legacy untagged path, only allow the last 5 minutes
+            const FIVE_MINUTES_AGO = Math.floor(Date.now() / 1000) - 300;
+            if (s.created >= FIVE_MINUTES_AGO) {
+              finalMatch = true;
+            }
+          }
+
+          if (finalMatch && priceMatches) {
+            match = s;
+            break; 
+          }
+        }
+      }
+
+      if (match) {
+        console.log(`[Email-Forensics] Found new paid session: ${match.id}`);
+        const success = await fulfillOrder(match, typeHint);
+        return res.json({ success, type: typeHint || "unknown", message: "Found and processed your payment!" });
+      }
+
+      res.json({ success: false, message: `Found ${emailSessions.length} session(s), but none are 'paid' yet.` });
+    } catch (error: any) {
+      console.error("[Email-Forensics] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // DEBUG ONLY: Simulate a successful payment webhook
@@ -1723,7 +1878,7 @@ Pet Owner: ${message}`
   });
 
   // Receipt OCR endpoint for expense tracking
-  app.post("/api/expenses/ocr", async (req, res) => {
+    app.post("/api/expenses/ocr", async (req, res) => {
     try {
       const { imageBase64 } = req.body;
       

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -49,7 +50,34 @@ export function VetChatStandalone() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [currentChatId, setCurrentChatId] = useState<number | null>(null);
+  const [fulfillmentStatus, setFulfillmentStatus] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // AUTO-UNLOCK POLLING (Same logic as Home & Injury)
+  useEffect(() => {
+    if (!user?.email || (Number(user?.vetChatCredits ?? 0) > 0)) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        console.log(`[VET-CHAT] Checking credits for ${user.email}...`);
+        const response = await apiRequest("GET", `/api/stripe/fulfill-by-email?email=${user.email}&type=vet_chat_pack`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setFulfillmentStatus("✅ Credits Added! Consultation Unlocked.");
+          await refreshUser();
+          toast({ title: "Credits Added", description: "5 new questions have been added to your account!" });
+          clearInterval(interval);
+        } else {
+          setFulfillmentStatus("🔍 Searching for payment...");
+        }
+      } catch (e) {
+        setFulfillmentStatus("⚠️ Waiting for Stripe signal...");
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [user?.email, user?.vetChatCredits]);
 
   // Load latest chat on mount
   useEffect(() => {
@@ -307,15 +335,18 @@ export function VetChatStandalone() {
               </div>
               <div className="space-y-2">
                 <Label>Gender <span className="text-red-500">*</span></Label>
-                <select 
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                  value={petInfo.gender}
-                  onChange={(e) => setPetInfo({...petInfo, gender: e.target.value})}
+                <Select 
+                  value={petInfo.gender} 
+                  onValueChange={(val) => setPetInfo({...petInfo, gender: val})}
                 >
-                  <option value="">Select Gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                </select>
+                  <SelectTrigger className="w-full h-11 bg-white/50 dark:bg-black/50 backdrop-blur-sm border-2">
+                    <SelectValue placeholder="Select Gender" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[10001]">
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <Button 
@@ -443,6 +474,13 @@ export function VetChatStandalone() {
                   <CreditCard className="w-4 h-4" />
                   Buy 5 More Questions - $15
                 </Button>
+
+                {fulfillmentStatus && (
+                  <div className="flex items-center justify-center gap-2 py-1">
+                    <div className="w-2 h-2 rounded-full bg-[#ff6b4a] animate-pulse" />
+                    <span className="text-xs font-medium text-[#ff6b4a] animate-pulse">{fulfillmentStatus}</span>
+                  </div>
+                )}
 
                 <div className="space-y-2 pt-2 border-t">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase">Included in Pack:</p>

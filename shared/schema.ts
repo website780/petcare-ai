@@ -276,7 +276,7 @@ export const insertPetSchema = createInsertSchema(pets, {
   moodRecommendations: z.array(z.string()).optional().default([]),
   imageGallery: z.array(z.string()).optional().default([]),
   vaccinationRecords: z.array(z.string()).optional().default([])
-}).omit({ id: true }).extend({gender: z.string().optional()});
+}).omit({ id: true }).extend({gender: z.string().nullable().optional()});
 
 export const insertReminderSchema = createInsertSchema(reminders)
   .omit({ id: true })
@@ -431,6 +431,13 @@ export const standaloneVetChats = pgTable("standalone_vet_chats", {
   chatHistory: jsonb("chat_history").notNull(), // Array of { role, content }
   questionsUsed: integer("questions_used").default(0),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const processedPayments = pgTable("processed_payments", {
+  id: serial("id").primaryKey(),
+  stripeSessionId: text("stripe_session_id").notNull().unique(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  processedAt: timestamp("processed_at").defaultNow(),
 });
 
 export const insertPetPortraitSchema = createInsertSchema(petPortraits)

@@ -25,6 +25,7 @@ import {
   Globe,
   Smartphone
 } from "lucide-react";
+import { useLocation } from "wouter";
 
 const featureCategories = [
   {
@@ -364,6 +365,7 @@ const featureCategories = [
 ];
 
 export default function Features() {
+  const [_, setLocation] = useLocation();
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="container mx-auto px-4 py-12">

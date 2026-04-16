@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { auth, facebookProvider } from "@/lib/firebase";
 import { GoogleAuthProvider, signInWithPopup, signOut, type User } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -131,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await signOut(auth);
     } catch (error) {
@@ -143,9 +143,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       throw error;
     }
-  };
+  }, [toast]);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     if (!auth.currentUser) return;
     try {
       const response = await apiRequest("POST", "/api/auth/sync", {
@@ -166,8 +166,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             vetChatCredits: Number(dbUser.vetChatCredits ?? 2)
           };
 
-          // DEFENSIVE SYNC: Only update flags if dbUser explicitly has them
-          // This prevents "flickering" if the DB hits a stale node
           return {
             ...prev,
             dbId: dbUser.id,
@@ -183,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Error refreshing user:", error);
     }
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithFacebook, logout, refreshUser }}>

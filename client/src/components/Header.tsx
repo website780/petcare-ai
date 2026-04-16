@@ -27,7 +27,7 @@ export function Header() {
   if (!user) return null;
 
   return (
-    <div className="w-full relative z-50 bg-white shadow-[0_4px_30px_rgba(0,0,0,0.05)] transition-all duration-300 left-0 top-0 sticky">
+    <div className="w-full relative z-50 bg-white/80 backdrop-blur-md border-b border-white/20 shadow-sm transition-all duration-300 left-0 top-0 sticky">
       <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex items-center justify-between">
           

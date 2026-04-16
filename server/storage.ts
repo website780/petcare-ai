@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool } from "@neondatabase/serverless";
 import { type Pet, type InsertPet, type Reminder, type InsertReminder, type User, type InsertUser, type VetConsultation, type InsertVetConsultation, type GroomingAppointment, type InsertGroomingAppointment, type TrainingAppointment, type InsertTrainingAppointment, type InsurancePolicy, type InsertInsurancePolicy, type InsuranceClaim, type InsertInsuranceClaim, type PetExpense, type InsertPetExpense, type PetPortrait, type InsertPetPortrait, type StandaloneScan, type StandaloneVetChat } from "../shared/schema.js";
-import { pets, users, reminders, vetConsultations, groomingAppointments, trainingAppointments, insurancePolicies, insuranceClaims, petExpenses, petPortraits, standaloneScans, standaloneVetChats } from "../shared/schema.js";
+import { pets, users, reminders, vetConsultations, groomingAppointments, trainingAppointments, insurancePolicies, insuranceClaims, petExpenses, petPortraits, standaloneScans, standaloneVetChats, processedPayments } from "../shared/schema.js";
 import { eq, and, desc, sql } from "drizzle-orm";
 import ws from "ws";
 
@@ -24,6 +24,7 @@ export interface IStorage {
   // User operations
   createUser(user: InsertUser): Promise<User>;
   getUser(id: number): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   getUserByFirebaseId(firebaseId: string): Promise<User | undefined>;
   updateUser(id: number, updates: Partial<InsertUser>): Promise<User>;
   updateUserCredits(id: number, field: 'freeScanUsed' | 'freeInjuryScanUsed' | 'vetChatCredits', value: number): Promise<User>;
@@ -96,6 +97,10 @@ export interface IStorage {
   getStandaloneVetChats(userId: number): Promise<StandaloneVetChat[]>;
   updateStandaloneVetChat(id: number, updates: Partial<StandaloneVetChat>): Promise<StandaloneVetChat>;
 
+  // Payment tracking
+  isPaymentProcessed(sessionId: string): Promise<boolean>;
+  markPaymentProcessed(userId: number, sessionId: string): Promise<void>;
+
   // Testing
   resetUserForTesting(userId: number): Promise<User>;
 }
@@ -109,6 +114,12 @@ export class PostgresStorage implements IStorage {
   async getUserByFirebaseId(firebaseId: string): Promise<User | undefined> {
     const results = await db.select().from(users).where(eq(users.firebaseId, firebaseId));
     return results[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const [user] = await db.select().from(users).where(eq(users.email, normalizedEmail));
+    return user;
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -501,6 +512,20 @@ export class PostgresStorage implements IStorage {
       .where(eq(standaloneVetChats.id, id))
       .returning();
     return updatedChat;
+  }
+
+  async isPaymentProcessed(sessionId: string): Promise<boolean> {
+    const results = await db.select()
+      .from(processedPayments)
+      .where(eq(processedPayments.stripeSessionId, sessionId));
+    return results.length > 0;
+  }
+
+  async markPaymentProcessed(userId: number, sessionId: string): Promise<void> {
+    await db.insert(processedPayments).values({
+      userId,
+      stripeSessionId: sessionId
+    });
   }
 }
 

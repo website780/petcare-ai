@@ -75,7 +75,7 @@ export async function setupVite(app: Express, server: Server) {
 
 export function serveStatic(app: Express) {
   const rootDir = process.cwd();
-  const distPath = path.resolve(rootDir, "dist", "public");
+  const distPath = path.resolve(rootDir, "dist");
   
   if (!fs.existsSync(distPath)) {
     // Fallback search if dist/public isn't finding it directly

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Upload, Loader2, AlertTriangle, CheckCircle2, ChevronRight, User, Heart
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocation } from "wouter";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type TreatmentOption = {
   name: string;
@@ -63,6 +64,38 @@ export function InjuryScanner() {
   const [analysis, setAnalysis] = useState<InjuryAnalysis | null>(null);
   const [currentScanId, setCurrentScanId] = useState<number | null>(null);
   const [isPaid, setIsPaid] = useState<boolean>(false);
+  const [fulfillmentStatus, setFulfillmentStatus] = useState<string | null>(null);
+
+  // Derive unlocked state from both local scan status AND global user credits
+  const isUnlocked = isPaid || Number(user?.freeInjuryScanUsed ?? 1) === 0;
+
+  // AUTO-UNLOCK POLLING (Same as Home Page)
+  useEffect(() => {
+    if (!user?.email || isPaid) return;
+    
+    // Check every 10 seconds
+    const interval = setInterval(async () => {
+      try {
+        console.log(`[INJURY-SCAN] Checking fulfillment for ${user.email}...`);
+        const response = await apiRequest("GET", `/api/stripe/fulfill-by-email?email=${user.email}&type=injury_report`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setFulfillmentStatus("✅ Payment Confirmed! Unlocking...");
+          await refreshUser();
+          setIsPaid(true);
+          toast({ title: "Success", description: "Your injury scan has been unlocked!" });
+          clearInterval(interval);
+        } else {
+          setFulfillmentStatus("🔍 Searching for payment...");
+        }
+      } catch (e) {
+        setFulfillmentStatus("⚠️ Waiting for Stripe signal...");
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [user?.email, isPaid]);
 
   const handleBodyUpload = async (acceptedFiles: File[]) => {
     if (user?.freeInjuryScanUsed === 1) {
@@ -224,7 +257,7 @@ export function InjuryScanner() {
             {user?.freeInjuryScanUsed === 1 ? (
               <div className="flex flex-col items-center gap-6 py-8">
                 <div className="bg-primary/5 rounded-2xl p-8 w-full text-center space-y-4">
-                  <div className="text-3xl font-black">$5.00</div>
+                  <div className="text-3xl font-black">$4.99</div>
                   <p className="text-sm text-muted-foreground">Complete High-Accuracy Medical Report & AI Vet Access</p>
                   <Button 
                     size="lg" 
@@ -233,6 +266,13 @@ export function InjuryScanner() {
                   >
                     Pay & Start Scan
                   </Button>
+                  
+                  {fulfillmentStatus && (
+                    <div className="flex items-center justify-center gap-2 py-2">
+                       <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                       <span className="text-xs font-medium text-muted-foreground animate-pulse">{fulfillmentStatus}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -286,15 +326,18 @@ export function InjuryScanner() {
               </div>
               <div className="space-y-2">
                 <Label>Gender <span className="text-red-500">*</span></Label>
-                <select 
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                  value={petInfo.gender}
-                  onChange={(e) => setPetInfo({...petInfo, gender: e.target.value})}
+                <Select 
+                  value={petInfo.gender} 
+                  onValueChange={(val) => setPetInfo({...petInfo, gender: val})}
                 >
-                  <option value="">Select Gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                </select>
+                  <SelectTrigger className="w-full h-11 bg-white/50 dark:bg-black/50 backdrop-blur-sm border-2">
+                    <SelectValue placeholder="Select Gender" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[10001]">
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <Button 
@@ -365,7 +408,7 @@ export function InjuryScanner() {
             <CardContent className="p-6 space-y-8">
               {/* Premium Content Wall */}
               <div className="relative">
-                <div className={`space-y-6 ${!isPaid ? "blur-[8px] pointer-events-none select-none opacity-40" : ""}`}>
+                <div className={`space-y-6 ${!isUnlocked ? "blur-[8px] pointer-events-none select-none opacity-40" : ""}`}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <h3 className="text-lg font-bold border-b pb-2">Treatment Options</h3>
@@ -397,7 +440,7 @@ export function InjuryScanner() {
                   </div>
                 </div>
 
-                {!isPaid && (
+                {!isUnlocked && (
                   <div className="absolute inset-0 flex items-center justify-center p-4">
                     <Card className="max-w-md w-full shadow-2xl border-[#ff6b4a]/30 bg-white dark:bg-gray-900">
                       <CardHeader className="text-center pb-2">
@@ -406,7 +449,7 @@ export function InjuryScanner() {
                       </CardHeader>
                       <CardContent className="text-center space-y-6">
                         <div className="flex flex-col items-center gap-1">
-                          <span className="text-4xl font-black text-[#0a0a0a] dark:text-white">$5.00</span>
+                          <span className="text-4xl font-black text-[#0a0a0a] dark:text-white">$4.99</span>
                           <span className="text-xs text-muted-foreground">one-time payment per scan</span>
                         </div>
                         
@@ -433,6 +476,15 @@ export function InjuryScanner() {
                           Unlock Full Report Now
                         </Button>
                         
+                        {fulfillmentStatus && (
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                            <span className="text-xs font-medium text-orange-600 dark:text-orange-400 animate-pulse">
+                              {fulfillmentStatus}
+                            </span>
+                          </div>
+                        )}
+                        
                         <p className="text-[10px] text-muted-foreground">Secure payment via Stripe. 256-bit encryption.</p>
                       </CardContent>
                     </Card>
@@ -446,10 +498,10 @@ export function InjuryScanner() {
           <div className="bg-muted/30 rounded-2xl p-8 text-center border-2 border-dashed flex flex-col items-center gap-4">
             <MessageSquare className="w-12 h-12 text-muted-foreground opacity-20" />
             <div className="space-y-1">
-              <h3 className={`font-bold text-lg ${!isPaid ? "opacity-40" : ""}`}>24/7 Veterinary Assistant</h3>
-              <p className={`text-sm text-muted-foreground max-w-sm ${!isPaid ? "opacity-40" : ""}`}>Ask follow-up questions about this injury, recovery, or diet directly to our expert AI Vet.</p>
+               <h3 className={`font-bold text-lg ${!isUnlocked ? "opacity-40" : ""}`}>24/7 Veterinary Assistant</h3>
+              <p className={`text-sm text-muted-foreground max-w-sm ${!isUnlocked ? "opacity-40" : ""}`}>Ask follow-up questions about this injury, recovery, or diet directly to our expert AI Vet.</p>
             </div>
-            {isPaid ? (
+            {isUnlocked ? (
               <Button 
                 className="gap-2 bg-[#ff6b4a] hover:bg-[#e05a3b] px-8 py-6 text-lg font-bold shadow-lg shadow-orange-500/20 animate-in fade-in zoom-in duration-300" 
                 onClick={() => setLocation("/vet")}

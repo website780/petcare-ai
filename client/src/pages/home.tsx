@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -58,12 +58,63 @@ async function compressImage(file: File, quality = INITIAL_COMPRESSION_QUALITY):
 }
 
 export default function Home() {
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showUploader, setShowUploader] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [fulfillmentStatus, setFulfillmentStatus] = useState<string | null>(null);
+
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { user, loading, signInWithGoogle, logout, signInWithFacebook, refreshUser } = useAuth(); // Added signInWithFacebook and refreshUser
+  const { user, loading, signInWithGoogle, logout, signInWithFacebook, refreshUser } = useAuth();
   const queryClient = useQueryClient();
+
+  // Auto-refresh user state after payment interaction
+  useEffect(() => {
+    let interval: NodeJS.Timeout | undefined;
+    
+    const checkFulfillment = async () => {
+      // Use Number() to be safe if DB returns string "1"
+      const isLocked = Number(user?.freeScanUsed ?? 0) === 1;
+      const userEmail = user?.email;
+
+      if (isLocked && userEmail) {
+        setFulfillmentStatus(`Searching for payment for ${userEmail}...`);
+        try {
+          console.log("[Home] Forensic check for:", userEmail);
+          const response = await apiRequest("GET", `/api/stripe/fulfill-by-email?email=${userEmail}&type=home_analysis`);
+          const data = await response.json();
+          
+          if (data.success) {
+            setFulfillmentStatus("✅ Payment Confirmed! Unlocking...");
+            await refreshUser();
+            toast({
+              title: "Scan Unlocked!",
+              description: "Your payment was verified. You can now use the scanner.",
+            });
+          } else {
+            // Display the specific reason from the server
+            setFulfillmentStatus(`ℹ️ ${data.message || "Checking Stripe..."}`);
+            await refreshUser();
+          }
+        } catch (e) {
+          setFulfillmentStatus("⚠️ Waiting for Stripe signal...");
+          await refreshUser();
+        }
+      } else {
+        setFulfillmentStatus(null);
+      }
+    };
+
+    if (user?.freeScanUsed === 1) {
+      // Initial check
+      checkFulfillment();
+      // Periodically check every 10 seconds
+      interval = setInterval(checkFulfillment, 10000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [user?.freeScanUsed, refreshUser, toast]);
 
   const { data: pets } = useQuery<Pet[]>({
     queryKey: ["/api/pets", user?.dbId], // Updated to use dbId instead of id
@@ -355,9 +406,9 @@ export default function Home() {
             <Button
               size="lg"
               onClick={signInWithGoogle}
-              className="text-xl px-8 py-8 bg-[#0F172A] hover:bg-[#1e293b] text-white border-transparent shadow-[0_20px_50px_rgba(15,23,42,0.3)] hover:shadow-[0_25px_60px_rgba(15,23,42,0.5)] hover:-translate-y-2 active:translate-y-0 active:scale-95 transition-all duration-300 ease-out rounded-full group"
+              className="text-xl px-8 py-8 bg-[#0F172A] hover:bg-[#1e293b] text-white border-transparent shadow-[0_15px_40px_-5px_rgba(15,23,42,0.3)] hover:shadow-[0_20px_50px_-5px_rgba(15,23,42,0.4)] hover:scale-[1.02] active:scale-95 transition-all duration-300 ease-out rounded-2xl group"
             >
-              <Heart className="mr-3 h-6 w-6 group-hover:scale-125 transition-transform duration-300" />
+              <Heart className="mr-3 h-6 w-6 text-red-500 group-hover:scale-125 transition-transform duration-300" />
               Sign in with Google
             </Button>
 
@@ -365,9 +416,9 @@ export default function Home() {
               size="lg"
               onClick={signInWithFacebook}
               variant="outline"
-              className="text-xl px-8 py-8 bg-[#1877F2] border-transparent shadow-[0_20px_50px_rgba(24,119,242,0.3)] hover:shadow-[0_25px_60px_rgba(24,119,242,0.5)] text-white hover:bg-[#1877F2]/90 hover:shadow-2xl hover:-translate-y-2 active:translate-y-0 active:scale-95 transition-all duration-300 ease-out rounded-full group"
+              className="text-xl px-8 py-8 bg-[#1877F2] border-transparent shadow-[0_15px_40px_-5px_rgba(24,119,242,0.3)] hover:shadow-[0_20px_50px_-5px_rgba(24,119,242,0.4)] text-white hover:bg-[#1877F2]/90 hover:scale-[1.02] active:scale-95 transition-all duration-300 ease-out rounded-2xl group"
             >
-              <SiFacebook className="mr-3 h-6 w-6 group-hover:scale-125 transition-transform duration-300" />
+              <SiFacebook className="mr-3 h-6 w-6 group-hover:rotate-12 transition-transform duration-300" />
               Sign in with Facebook
             </Button>
           </div>
@@ -394,24 +445,26 @@ export default function Home() {
               />
             </div>
 
-            <Button
-              size="lg"
-              onClick={() => {
-                if (user?.freeScanUsed === 1) {
-                  handleCheckout();
-                } else {
-                  setShowUploader(true);
-                }
-              }}
-              className="text-xl px-12 py-8 bg-[#0F172A] hover:bg-[#1e293b] text-white border-transparent shadow-[0_20px_50px_rgba(15,23,42,0.3)] hover:shadow-[0_25px_60px_rgba(15,23,42,0.5)] hover:-translate-y-2 hover:scale-105 active:scale-95 transition-all duration-300 ease-out rounded-full group mt-8"
-            >
-              <Heart className="mr-3 h-7 w-7 group-hover:scale-125 transition-transform duration-300 animate-pulse" />
-              <span className="font-bold tracking-wide">Get Started</span>
-            </Button>
+            <div className="flex flex-col items-center gap-4">
+              <Button
+                size="lg"
+                onClick={() => {
+                  if (user?.freeScanUsed === 1) {
+                    handleCheckout();
+                  } else {
+                    setShowUploader(true);
+                  }
+                }}
+                className="text-xl px-12 py-8 bg-[#ff6b4a] hover:bg-[#e05a3b] text-white border-transparent shadow-[0_20px_50px_rgba(255,107,74,0.3)] hover:shadow-[0_25px_60px_rgba(255,107,74,0.5)] hover:-translate-y-2 active:translate-y-0 active:scale-95 transition-all duration-300 ease-out rounded-full"
+              >
+                {user?.freeScanUsed === 1 ? 'Unlock Unlimited Scans' : 'Get Guided Care'}
+              </Button>
 
-            {/* Temporary Debug Info - remove after verification */}
-            <div className="mt-8 p-4 rounded-xl bg-black/10 text-xs font-mono">
-              DEBUG: ID:{user?.dbId} | SCAN_USED:{Number(user?.freeScanUsed ?? 0)} | INJURY_USED:{Number(user?.freeInjuryScanUsed ?? 0)} | VET_CREDITS:{Number(user?.vetChatCredits ?? 0)}
+              {fulfillmentStatus && (
+                <p className="mt-4 text-sm font-medium animate-pulse text-[#ff6b4a] bg-[#ff6b4a]/10 px-4 py-2 rounded-full border border-[#ff6b4a]/20">
+                  {fulfillmentStatus}
+                </p>
+              )}
             </div>
           </div>
         </div>
