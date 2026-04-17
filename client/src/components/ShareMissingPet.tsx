@@ -88,7 +88,7 @@ Please share to help us find them! 🙏`;
                 key={index}
                 src={image}
                 alt={`${pet.name} - Photo ${index + 1}`}
-                className="rounded-lg object-cover h-48 w-full"
+                className="rounded-lg object-cover w-full"
               />
             ))}
           </div>

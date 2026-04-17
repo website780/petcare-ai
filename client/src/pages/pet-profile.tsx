@@ -7,15 +7,15 @@ import { Input } from "@/components/ui/input";
 import { PetMood } from "@/components/PetMood";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Apple, Stethoscope, Scissors, Pencil, Camera, Calendar, Dumbbell, Scan, Syringe } from "lucide-react";
+import { ArrowLeft, Apple, Stethoscope, Scissors, Pencil, Camera, Calendar, Dumbbell, Scan, Syringe, ImagePlus } from "lucide-react";
 import { type Pet } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useDropzone } from "react-dropzone";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Header } from "@/components/Header";
-import { useAuth } from "@/hooks/use-auth"; // Added import for useAuth
-import { ShareMissingPet } from "@/components/ShareMissingPet"; // Added import for ShareMissingPet
+import { useAuth } from "@/hooks/use-auth";
+import { ShareMissingPet } from "@/components/ShareMissingPet";
 
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB for initial uploads
 const COMPRESSION_QUALITY = 0.9; // 90% quality
@@ -64,7 +64,9 @@ export default function PetProfile() {
   const { toast } = useToast();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { user, loading } = useAuth(); // Added useAuth hook
+  // Controls whether the change-photo dropzone overlay is visible
+  const [showChangePhoto, setShowChangePhoto] = useState(false);
+  const { user, loading } = useAuth();
 
   const { data: pet, isLoading } = useQuery<Pet>({
     queryKey: [`/api/pets/${id}`],
@@ -72,12 +74,11 @@ export default function PetProfile() {
 
   const updatePetImage = useMutation({
     mutationFn: async (imageUrl: string) => {
-      // Only update if we have a valid image URL
       if (!imageUrl) return;
 
       const response = await apiRequest("PATCH", `/api/pets/${id}`, {
         imageUrl,
-        // Only include the new image in gallery if it's not the same as current imageUrl
+        // Only add to gallery if it's a genuinely new image
         imageGallery: pet?.imageUrl !== imageUrl ? [imageUrl] : []
       });
       if (!response.ok) {
@@ -86,17 +87,17 @@ export default function PetProfile() {
       return response.json();
     },
     onSuccess: (data) => {
-      // Update local query cache immediately
       queryClient.setQueryData([`/api/pets/${id}`], data);
       queryClient.invalidateQueries({ queryKey: [`/api/pets/${id}`] });
-      toast({ title: "Pet image updated successfully" });
+      toast({ title: "Pet photo updated!" });
       setIsProcessing(false);
       setImagePreview(null);
+      setShowChangePhoto(false);
     },
     onError: () => {
       toast({
         variant: "destructive",
-        title: "Failed to update pet image",
+        title: "Failed to update pet photo",
       });
       setIsProcessing(false);
       setImagePreview(null);
@@ -139,7 +140,6 @@ export default function PetProfile() {
     try {
       const compressedImage = await compressImage(file);
       setImagePreview(compressedImage);
-      // Wait for the mutation to complete before clearing the preview
       await updatePetImage.mutateAsync(compressedImage);
     } catch (error) {
       console.error('Error processing image:', error);
@@ -242,6 +242,9 @@ export default function PetProfile() {
     }
   ];
 
+  // The image to display — either a freshly picked preview or the saved pet image
+  const displayImage = imagePreview || pet.imageUrl;
+
   return (
     <>
       <Header />
@@ -300,37 +303,97 @@ export default function PetProfile() {
               </div>
             </div>
           </CardHeader>
+
           <CardContent className="p-4 md:p-6">
             <div className="space-y-6">
-              <div
-                {...getRootProps()}
-                className={`relative group cursor-pointer mb-6 touch-manipulation ${
-                  isDragActive ? "ring-2 ring-primary" : ""
-                }`}
-              >
-                <input {...getInputProps()} />
-                {(imagePreview || pet.imageUrl) ? (
-                  <>
-                    <img
-                      src={imagePreview || pet.imageUrl || ''}
-                      alt={pet.name}
-                      className="w-full max-h-72 md:max-h-96 object-cover rounded-lg"
-                    />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
-                      <Camera className="h-8 w-8 text-white" />
+
+              {/* ── Pet photo section ── */}
+              <div className="mb-6">
+                {displayImage ? (
+                  /* ── Has image: show it + change-photo controls ── */
+                  <div className="space-y-3">
+                    <div className="relative rounded-lg overflow-hidden">
+                      <img
+                        src={displayImage}
+                        alt={pet.name}
+                        className="w-full h-auto object-cover"
+                      />
+                      {isProcessing && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
+                          <div className="flex flex-col items-center gap-2 text-white">
+                            <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full" />
+                            <p className="text-sm font-medium">Updating photo…</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </>
+
+                    {/* Change photo toggle */}
+                    {!showChangePhoto ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowChangePhoto(true)}
+                        className="w-full gap-2 border-dashed border-2 text-muted-foreground hover:text-foreground hover:border-primary/60 transition-colors"
+                      >
+                        <ImagePlus className="h-4 w-4" />
+                        Change Photo
+                      </Button>
+                    ) : (
+                      /* Inline dropzone for replacement */
+                      <div
+                        {...getRootProps()}
+                        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all duration-300
+                          ${isDragActive ? "border-[#ff6b4a] bg-[#ff6b4a]/10 scale-[1.02]" : "border-primary/50 hover:border-primary hover:bg-primary/5"}
+                          ${isProcessing ? "pointer-events-none opacity-50" : ""}`}
+                      >
+                        <input {...getInputProps()} />
+                        <div className="flex flex-col items-center gap-2">
+                          <Camera className="h-8 w-8 text-muted-foreground" />
+                          <p className="text-sm font-medium text-foreground">
+                            {isDragActive ? "Drop to replace photo" : "Drop a new photo here, or click to browse"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">JPG, PNG · up to 20MB</p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mt-3 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={(e) => { e.stopPropagation(); setShowChangePhoto(false); }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center p-8 md:p-12 border-2 border-dashed rounded-lg">
-                    <Camera className="h-10 w-10 md:h-12 md:w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground text-center text-sm md:text-base">
-                      Tap to upload a photo
-                    </p>
+                  /* ── No image: full dropzone with AI copy ── */
+                  <div
+                    {...getRootProps()}
+                    className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-all duration-300
+                      ${isDragActive ? "border-[#ff6b4a] bg-[#ff6b4a]/10 scale-[1.02]" : "border-primary/50 hover:border-primary hover:bg-primary/5"}
+                      ${isProcessing ? "pointer-events-none opacity-50" : ""}`}
+                  >
+                    <input {...getInputProps()} />
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-16 h-16 rounded-full bg-[#ff6b4a]/10 flex items-center justify-center mx-auto">
+                        <Camera className="h-8 w-8 text-[#ff6b4a]" />
+                      </div>
+                      <p className="text-base font-semibold text-foreground">
+                        {isDragActive ? "Release to upload!" : "Drop your pet's photo here"}
+                      </p>
+                      <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+                        Upload an image for PetCare AI to analyze and generate a complete care profile for {pet.name}.
+                      </p>
+                      <p className="text-xs text-muted-foreground">JPG, PNG · up to 20MB · or click to browse</p>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {pet.imageGallery && pet.imageGallery.length > 0 && (
+              {/* ── Photo gallery ── */}
+              {pet.imageGallery && pet.imageGallery.length > 2 && (
                 <div className="mt-6">
                   <h3 className="text-lg font-semibold mb-4">Photo Gallery</h3>
                   <PhotoGallery pet={pet} />
@@ -500,7 +563,7 @@ export default function PetProfile() {
                 </div>
               </div>
 
-              {/* Added ShareMissingPet component */}
+              {/* ShareMissingPet component */}
               <ShareMissingPet 
                 pet={pet} 
                 ownerContact={user?.email || "Not available"}
