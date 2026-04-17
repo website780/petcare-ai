@@ -9,11 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
   Upload, Loader2, MessageSquare, Send, User, 
-  ChevronRight, Sparkles, CheckCircle2, Lock, CreditCard 
+  ChevronRight, Sparkles, CheckCircle2, Lock, CreditCard,
+  PawPrint, Plus
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ReactMarkdown from 'react-markdown';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { type Pet, insertPetSchema } from "@shared/schema";
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -21,13 +25,45 @@ type ChatMessage = {
   timestamp: Date;
 };
 
-type Step = "pet_id" | "pet_details" | "chat";
+type Step = "pet_select" | "pet_details" | "chat";
+
+async function compressImage(file: File, quality = 0.75): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("canvas ctx failed")); return; }
+        let { width, height } = img;
+        const max = 1536;
+        if (width > height && width > max) { height = (height * max) / width; width = max; }
+        else if (height > max) { width = (width * max) / height; height = max; }
+        canvas.width = width; canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => reject(new Error("img load failed"));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error("file read failed"));
+    reader.readAsDataURL(file);
+  });
+}
 
 export function VetChatStandalone() {
   const { user, refreshUser, loading } = useAuth();
   const { toast } = useToast();
   
-  const [step, setStep] = useState<Step>("pet_id");
+  const [step, setStep] = useState<Step>("pet_select");
+
+  const queryClient = useQueryClient();
+  const [selectedPetId, setSelectedPetId] = useState<number | null>(null);
+  const [isCreatingPet, setIsCreatingPet] = useState(false);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
+  const [isFetchingQuestions, setIsFetchingQuestions] = useState(false);
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -53,13 +89,76 @@ export function VetChatStandalone() {
   const [fulfillmentStatus, setFulfillmentStatus] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // AUTO-UNLOCK POLLING (Same logic as Home & Injury)
+  const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
+    queryKey: ["/api/pets", user?.dbId],
+    queryFn: async () => {
+      if (!user) throw new Error("Not authenticated");
+      const response = await apiRequest("GET", `/api/pets?userId=${user.dbId}`);
+      return response.json();
+    },
+    enabled: !!user?.dbId,
+  });
+
+  const createPetMutation = useMutation({
+    mutationFn: async (pet: Omit<Pet, "id">) => {
+      const petWithSerializedVideos = {
+        ...pet,
+        groomingVideos: pet.groomingVideos?.map((v: any) =>
+          typeof v === "string" ? v : JSON.stringify(v)
+        ),
+      };
+      const validatedPet = insertPetSchema.parse(petWithSerializedVideos);
+      const res = await apiRequest("POST", "/api/pets", validatedPet);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.details || "Failed to create pet");
+      }
+      return res.json();
+    },
+    onSuccess: (newPet) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pets", user?.dbId] });
+      setPetInfo({
+        species: newPet.species || "",
+        breed: newPet.breed || "",
+        weight: newPet.weight || "",
+        age: (newPet as any).age || "",
+        gender: newPet.gender || "",
+      });
+      setSelectedPetId(newPet.id);
+      setStep("pet_details");
+      toast({ title: "Pet profile created!", description: "Verify details to start consultation." });
+    },
+    onError: (err: any) => {
+      toast({ variant: "destructive", title: "Failed to create pet", description: err.message });
+    },
+  });
+
+  // Fetch dynamic AI questions from the API
+  const fetchInitialQuestions = async (species: string, breed?: string, severity?: string) => {
+    setIsFetchingQuestions(true);
+    try {
+      const res = await apiRequest("POST", "/api/chat/initial-questions", {
+        petSpecies: species,
+        petBreed: breed,
+        severity: severity || "potential"
+      });
+      const data = await res.json();
+      if (data.questions) {
+        setSuggestedQuestions(data.questions);
+      }
+    } catch (error) {
+      console.error("Failed to fetch initial questions:", error);
+    } finally {
+      setIsFetchingQuestions(false);
+    }
+  };
+
+  // AUTO-UNLOCK POLLING
   useEffect(() => {
     if (!user?.email || (Number(user?.vetChatCredits ?? 0) > 0)) return;
     
     const interval = setInterval(async () => {
       try {
-        console.log(`[VET-CHAT] Checking credits for ${user.email}...`);
         const response = await apiRequest("GET", `/api/stripe/fulfill-by-email?email=${user.email}&type=vet_chat_pack`);
         const data = await response.json();
         
@@ -79,32 +178,68 @@ export function VetChatStandalone() {
     return () => clearInterval(interval);
   }, [user?.email, user?.vetChatCredits]);
 
-  // Load latest chat on mount
+  // Load latest chat on mount and Handle persistence
   useEffect(() => {
     if (loading) return;
-    
+
     const loadLatestChat = async () => {
+      // 1. Detect injury handoff from URL
+      const params = new URLSearchParams(window.location.search);
+      const injuryContextRaw = params.get("injuryContext");
+      
+      if (injuryContextRaw) {
+        try {
+          const ctx = JSON.parse(decodeURIComponent(injuryContextRaw));
+          if (ctx.petId) setSelectedPetId(ctx.petId);
+          if (ctx.petInfo) setPetInfo(ctx.petInfo);
+          
+          setStep("chat");
+          setIsInitialLoading(false);
+
+          // Get Dynamic Questions
+          fetchInitialQuestions(ctx.petInfo?.species || "pet", ctx.petInfo?.breed, ctx.severity);
+
+          // Instantly sync empty chat to persist it so it survives a refresh
+          if (user?.dbId) {
+             const res = await apiRequest("POST", "/api/standalone/vet-chat", {
+               userId: user.dbId,
+               petInfo: ctx.petInfo,
+               chatHistory: []
+             });
+             const data = await res.json();
+             if (data.id) setCurrentChatId(data.id);
+          }
+
+          // Clean up URL so refresh doesn't trigger this branch again
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return;
+        } catch {
+          // bad params, fall through
+        }
+      }
+
+      // 2. Load from DB state (Survives Refresh)
       if (user?.dbId) {
         try {
-          console.log("[VET-CHAT] Fetching session for user:", user.dbId);
           const res = await apiRequest("GET", `/api/standalone/vet-chat/latest?userId=${user.dbId}`);
           if (res.ok) {
             const latestChat = await res.json();
             if (latestChat) {
-              console.log("[VET-CHAT] Session restored:", latestChat.id);
               setCurrentChatId(latestChat.id);
               if (latestChat.petInfo) setPetInfo(latestChat.petInfo);
               
               if (latestChat.chatHistory && latestChat.chatHistory.length > 0) {
-                const restoredHistory = latestChat.chatHistory.map((m: any) => ({
+                // Chat has messages, just load the history
+                setChatHistory(latestChat.chatHistory.map((m: any) => ({
                   role: m.role,
                   content: m.content,
                   timestamp: new Date()
-                }));
-                setChatHistory(restoredHistory);
+                })));
                 setStep("chat");
               } else if (latestChat.petInfo?.species) {
-                setStep("pet_details");
+                // Empty chat restored from DB -> Re-fetch questions!
+                fetchInitialQuestions(latestChat.petInfo.species, latestChat.petInfo.breed);
+                setStep("chat");
               }
             }
           }
@@ -115,7 +250,7 @@ export function VetChatStandalone() {
       setIsInitialLoading(false);
     };
 
-    if (step === "pet_id") {
+    if (step === "pet_select") {
       loadLatestChat();
     } else {
       setIsInitialLoading(false);
@@ -126,7 +261,6 @@ export function VetChatStandalone() {
   const syncChat = async (history: ChatMessage[], info = petInfo) => {
     if (!user?.dbId) return;
     try {
-      console.log("[VET-CHAT] Syncing session...", { id: currentChatId, historyCount: history.length });
       const res = await apiRequest("POST", "/api/standalone/vet-chat", {
         userId: user.dbId,
         id: currentChatId,
@@ -135,7 +269,6 @@ export function VetChatStandalone() {
       });
       const data = await res.json();
       if (data.id && currentChatId !== data.id) {
-        console.log("[VET-CHAT] Session ID assigned/updated:", data.id);
         setCurrentChatId(data.id);
       }
     } catch (error) {
@@ -148,67 +281,119 @@ export function VetChatStandalone() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory]);
 
-  const handleBodyUpload = async (acceptedFiles: File[]) => {
+  const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      toast({ variant: "destructive", title: "Image too large", description: "Max 15MB" });
+      return;
+    }
 
-    setIsAnalyzing(true);
+    setIsCreatingPet(true);
     try {
-      const base64Data = (await new Promise((resolve) => {
-        const r = new FileReader();
-        r.onload = () => {
-          if (typeof r.result === "string") resolve(r.result);
-          else resolve("");
-        };
-        r.readAsDataURL(file);
-      })) as string;
+      const compressedDataUrl = await compressImage(file, 0.6);
+      const base64 = compressedDataUrl.split(",")[1];
 
-      const base64Image = base64Data.split(",")[1];
-      const response = await apiRequest("POST", "/api/standalone/analyze-body", { imageData: base64Image });
-      const result = await response.json();
-      
-      const updatedInfo = { ...petInfo, ...result };
-      setPetInfo(updatedInfo);
-      setStep("pet_details");
-      
-      // Save initial session
-      syncChat([], updatedInfo);
-    } catch (error) {
-      toast({ variant: "destructive", title: "Identification Failed", description: "Please enter details manually." });
+      const analyzeRes = await apiRequest("POST", "/api/analyze", {
+        imageData: base64,
+        userId: user?.dbId,
+      });
+      if (!analyzeRes.ok) {
+        const err = await analyzeRes.json();
+        throw new Error(err.details || "Analysis failed");
+      }
+      const analysis = await analyzeRes.json();
+
+      await createPetMutation.mutateAsync({
+        name: "New Pet",
+        userId: user?.dbId || 0,
+        species: analysis.species || "Unknown",
+        breed: analysis.breed ?? null,
+        gender: analysis.gender ?? null,
+        imageUrl: compressedDataUrl,
+        imageGallery: [],
+        lastMoodUpdate: null,
+        careRecommendations: analysis.careRecommendations ?? [],
+        weight: analysis.weight ?? null,
+        size: analysis.size ?? null,
+        lifespan: analysis.lifespan ?? null,
+        vetCareFrequency: analysis.vetCareFrequency ?? null,
+        vetCareDetails: analysis.vetCareDetails ?? [],
+        groomingSchedule: analysis.groomingSchedule ?? null,
+        groomingDetails: analysis.groomingDetails ?? [],
+        groomingVideos: (analysis.groomingVideos || []).map((v: any) => JSON.stringify(v)),
+        dietType: analysis.dietType ?? null,
+        foodRecommendations: analysis.foodRecommendations ?? [],
+        feedingSchedule: analysis.feedingSchedule ?? null,
+        portionSize: analysis.portionSize ?? null,
+        nutritionalNeeds: analysis.nutritionalNeeds ?? [],
+        foodRestrictions: analysis.foodRestrictions ?? [],
+        treatRecommendations: analysis.treatRecommendations ?? [],
+        currentMood: analysis.currentMood ?? null,
+        moodDescription: analysis.moodDescription ?? null,
+        moodRecommendations: analysis.moodRecommendations ?? [],
+        trainingLevel: analysis.trainingLevel ?? null,
+        exerciseNeeds: analysis.exerciseNeeds ?? null,
+        exerciseSchedule: analysis.exerciseSchedule ?? null,
+        exerciseDuration: analysis.exerciseDuration ?? null,
+        trainingDetails: analysis.trainingDetails ?? [],
+        trainingVideos: (analysis.trainingVideos || []).map((v: any) => JSON.stringify(v)),
+        trainingSchedule: analysis.trainingSchedule ?? null,
+        exerciseType: analysis.exerciseType ?? null,
+        trainingProgress: analysis.trainingProgress ?? null,
+        vaccinationRecords: [],
+        vaccinationSchedule: null,
+        nextVaccinationDue: null,
+        vaccinationNotes: null,
+      } as any);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Identification Failed", description: err.message || "Could not identify pet." });
       setStep("pet_details");
     } finally {
-      setIsAnalyzing(false);
+      setIsCreatingPet(false);
     }
   };
 
-  const { getRootProps: getPetProps, getInputProps: getPetInput } = useDropzone({
-    onDrop: handleBodyUpload,
+  const handleSelectExistingPet = (pet: Pet) => {
+    setSelectedPetId(pet.id);
+    setPetInfo({
+      species: pet.species || "",
+      breed: pet.breed || "",
+      weight: pet.weight || "",
+      age: (pet as any).age || "",
+      gender: pet.gender || "",
+    });
+    setStep("pet_details");
+  };
+
+  const { getRootProps: getNewPetProps, getInputProps: getNewPetInput } = useDropzone({
+    onDrop: handleNewPetPhotoUpload,
     accept: { "image/*": [".jpeg", ".jpg", ".png"] },
     maxFiles: 1,
+    disabled: isCreatingPet,
   });
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+  const handleSendMessage = async (overrideMessage?: string) => {
+    const message = (overrideMessage ?? inputMessage).trim();
+    if (!message) return;
 
-    // Check Credits (Now triggers Stripe automatically)
     const questionsRemaining = Number(user?.vetChatCredits ?? 0);
     if (questionsRemaining <= 0) {
       handleBuyCredits();
       return;
     }
 
-    const userMsg: ChatMessage = { role: "user", content: inputMessage, timestamp: new Date() };
+    const userMsg: ChatMessage = { role: "user", content: message, timestamp: new Date() };
     const updatedHistory = [...chatHistory, userMsg];
     setChatHistory(updatedHistory);
     setInputMessage("");
     setIsSending(true);
 
-    // Save immediately so state isn't lost if they close/redirect
     syncChat(updatedHistory);
 
     try {
       const res = await apiRequest("POST", "/api/chat/vet", {
-        message: inputMessage,
+        message: message,
         userId: user?.dbId,
         petInfo,
         chatHistory: chatHistory.map(m => ({ role: m.role, content: m.content })),
@@ -240,7 +425,6 @@ export function VetChatStandalone() {
       return;
     }
 
-    // Capture current state before redirecting
     await syncChat(chatHistory);
 
     try {
@@ -266,45 +450,94 @@ export function VetChatStandalone() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      {step === "pet_id" && (
-        <Card className="border-2 border-dashed border-[#ff6b4a]/20">
-          <CardHeader className="text-center">
-            <User className="w-12 h-12 mx-auto mb-2 text-[#ff6b4a]" />
-            <CardTitle>Whom are we helping today?</CardTitle>
-            <CardDescription>Upload a photo of your pet for an instant identification and health baseline.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div {...getPetProps()} className="border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer hover:bg-[#ff6b4a]/5 transition-all">
-              <input {...getPetInput()} />
-              {isAnalyzing ? (
-                <div className="space-y-4">
-                  <Loader2 className="w-10 h-10 animate-spin mx-auto text-[#ff6b4a]" />
-                  <p className="font-medium animate-pulse">Running facial and body recognition...</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <Upload className="w-12 h-12 mx-auto text-[#ff6b4a]/40" />
-                  <p className="text-lg font-semibold">Drop a pet photo here</p>
-                  <p className="text-sm text-muted-foreground italic">AI will detect species, breed, and weight instantly</p>
-                </div>
-              )}
+      {step === "pet_select" && (
+        <div className="space-y-6">
+          {isLoadingPets ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="w-8 h-8 animate-spin text-[#ff6b4a]" />
             </div>
-            <div className="mt-8 grid grid-cols-3 gap-4 text-center">
-              <div className="p-4 bg-muted/30 rounded-lg">
-                <span className="text-2xl font-bold text-[#ff6b4a]">99%</span>
-                <p className="text-[10px] uppercase text-muted-foreground mt-1">Accuracy</p>
-              </div>
-              <div className="p-4 bg-muted/30 rounded-lg">
-                <span className="text-2xl font-bold text-[#ff6b4a]">2s</span>
-                <p className="text-[10px] uppercase text-muted-foreground mt-1">Speed</p>
-              </div>
-              <div className="p-4 bg-muted/30 rounded-lg">
-                <span className="text-2xl font-bold text-[#ff6b4a]">5k+</span>
-                <p className="text-[10px] uppercase text-muted-foreground mt-1">Breeds</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          ) : pets && pets.length > 0 ? (
+            <Card className="border-2 border-dashed border-[#ff6b4a]/20">
+              <CardHeader className="text-center">
+                <PawPrint className="w-12 h-12 mx-auto mb-2 text-[#ff6b4a]" />
+                <CardTitle>Select Your Pet</CardTitle>
+                <CardDescription>Choose which pet needs a consultation today.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {pets.map((pet) => (
+                    <button
+                      key={pet.id}
+                      onClick={() => handleSelectExistingPet(pet)}
+                      className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-transparent hover:border-[#ff6b4a] hover:bg-[#ff6b4a]/5 transition-all group"
+                    >
+                      {pet.imageUrl ? (
+                        <img src={pet.imageUrl} alt={pet.name} className="w-16 h-16 rounded-full object-cover border-2 border-muted" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                          <PawPrint className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      <span className="text-sm font-semibold group-hover:text-[#ff6b4a] transition-colors">{pet.name}</span>
+                      <span className="text-xs text-muted-foreground">{pet.breed || pet.species}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">or add a new pet</span>
+                  </div>
+                </div>
+
+                <div
+                  {...getNewPetProps()}
+                  className="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer hover:bg-[#ff6b4a]/5 transition-all"
+                >
+                  <input {...getNewPetInput()} />
+                  {isCreatingPet ? (
+                    <div className="space-y-2">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#ff6b4a]" />
+                      <p className="text-sm font-medium animate-pulse">Identifying your pet...</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <Plus className="w-8 h-8 text-[#ff6b4a]/50" />
+                      <p className="text-sm font-medium">Upload new pet photo</p>
+                      <p className="text-xs text-muted-foreground">AI identifies breed & details instantly</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-2 border-dashed border-[#ff6b4a]/20">
+              <CardHeader className="text-center">
+                <User className="w-12 h-12 mx-auto mb-2 text-[#ff6b4a]" />
+                <CardTitle>Whom are we helping today?</CardTitle>
+                <CardDescription>Upload a photo of your pet for instant identification.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div {...getNewPetProps()} className="border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer hover:bg-[#ff6b4a]/5 transition-all">
+                  <input {...getNewPetInput()} />
+                  {isCreatingPet ? (
+                    <div className="space-y-4">
+                      <Loader2 className="w-10 h-10 animate-spin mx-auto text-[#ff6b4a]" />
+                      <p className="font-medium animate-pulse">Running facial and body recognition...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <Upload className="w-12 h-12 mx-auto text-[#ff6b4a]/40" />
+                      <p className="text-lg font-semibold">Drop a pet photo here</p>
+                      <p className="text-sm text-muted-foreground italic">AI will detect species, breed, and weight instantly</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {step === "pet_details" && (
@@ -318,7 +551,6 @@ export function VetChatStandalone() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Species</Label>
-                <Badge variant="secondary" className="block w-fit text-lg py-1 px-3 mb-2">{petInfo.species}</Badge>
                 <Input value={petInfo.species} onChange={(e) => setPetInfo({...petInfo, species: e.target.value})} />
               </div>
               <div className="space-y-2">
@@ -352,10 +584,9 @@ export function VetChatStandalone() {
             <Button 
               className="w-full bg-[#ff6b4a] hover:bg-[#e05a3b] text-lg font-bold py-6 group" 
               disabled={loading}
-              onClick={() => {
+              onClick={async () => {
                 if (loading) return;
                 
-                // Validation for mandatory fields
                 if (!petInfo.age || !petInfo.gender) {
                   toast({
                     variant: "destructive",
@@ -365,14 +596,26 @@ export function VetChatStandalone() {
                   return;
                 }
 
-                // Strict check for vet credits specifically
                 const credits = user ? Number(user.vetChatCredits ?? 0) : 0;
-                console.log(`[VET-CHAT-GATE] User: ${user?.dbId}, Credits: ${credits}, Loading: ${loading}`);
-                
                 if (credits <= 0) {
                   handleBuyCredits();
                 } else {
                   setStep("chat");
+                  // Initialize an empty chat in the Database immediately so it persists on refresh
+                  try {
+                    const res = await apiRequest("POST", "/api/standalone/vet-chat", {
+                      userId: user?.dbId,
+                      petInfo: petInfo,
+                      chatHistory: []
+                    });
+                    const data = await res.json();
+                    if (data.id) setCurrentChatId(data.id);
+                  } catch (e) {
+                     console.error("Failed to initialize empty session.");
+                  }
+
+                  // Trigger dynamic API questions load
+                  fetchInitialQuestions(petInfo.species, petInfo.breed);
                 }
               }}
             >
@@ -409,12 +652,16 @@ export function VetChatStandalone() {
                     <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[85%] p-4 rounded-2xl ${
                         msg.role === 'user' 
-                          ? 'bg-[#0a0a0a] text-white rounded-tr-none' 
+                          ? 'bg-white shadow-sm border rounded-tr-none dark:bg-gray-800' 
                           : 'bg-white shadow-sm border rounded-tl-none dark:bg-gray-800'
                       }`}>
-                        <p className="text-sm leading-relaxed">{msg.content}</p>
+                        <div className="text-sm text-w leading-relaxed prose prose-sm max-w-none dark:prose-invert">
+                          <ReactMarkdown>
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
                         <span className="text-[10px] mt-2 block opacity-50">
-                          {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {msg.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ""}
                         </span>
                       </div>
                     </div>
@@ -423,19 +670,43 @@ export function VetChatStandalone() {
                 <div ref={chatEndRef} />
               </CardContent>
 
-              <div className="p-4 border-t bg-white dark:bg-gray-900 shrink-0 rounded-b-xl">
+              <div className="p-4 border-t bg-white dark:bg-gray-900 shrink-0 rounded-b-xl space-y-2">
+                {isFetchingQuestions && chatHistory.length === 0 && (
+                  <div className="flex justify-center p-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-[#ff6b4a]" />
+                  </div>
+                )}
+                
+                {suggestedQuestions.length > 0 && chatHistory.length === 0 && !isFetchingQuestions && (
+                  <div className="grid grid-cols-1 gap-2 mb-2">
+                    {suggestedQuestions.map((q, i) => (
+                      <button
+                        key={i}
+                        onClick={async () => {
+                          setSuggestedQuestions([]);
+                          setInputMessage("");
+                          await handleSendMessage(q);
+                        }}
+                        className="w-full text-left text-xs p-3 rounded-xl bg-[#ff6b4a]/10 border border-[#ff6b4a]/30 text-[#ff6b4a] hover:bg-[#ff6b4a]/20 transition-colors font-medium"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex gap-2">
-                  <Input 
-                    placeholder="Type your question..." 
+                  <Input
+                    placeholder="Type your question..."
                     className="flex-1 h-12 rounded-xl"
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                     disabled={isSending}
                   />
-                  <Button 
+                  <Button
                     className="h-12 w-12 rounded-xl bg-[#ff6b4a] hover:bg-[#e05a3b]"
-                    onClick={handleSendMessage}
+                    onClick={() => handleSendMessage()}
                     disabled={isSending || !inputMessage.trim()}
                   >
                     {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
@@ -481,27 +752,8 @@ export function VetChatStandalone() {
                     <span className="text-xs font-medium text-[#ff6b4a] animate-pulse">{fulfillmentStatus}</span>
                   </div>
                 )}
-
-                <div className="space-y-2 pt-2 border-t">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Included in Pack:</p>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-[11px] font-medium">
-                      <CheckCircle2 className="w-3 h-3 text-green-500" />
-                      <span>Professional Veterinary AI</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px] font-medium">
-                      <CheckCircle2 className="w-3 h-3 text-green-500" />
-                      <span>Context-aware diagnosis</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px] font-medium">
-                      <CheckCircle2 className="w-3 h-3 text-green-500" />
-                      <span>Save history forever</span>
-                    </div>
-                  </div>
-                </div>
               </CardContent>
             </Card>
-
             <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/10 dark:to-pink-900/10 border-purple-200">
                <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-bold text-purple-600 uppercase">Emergency Tip</CardTitle>

@@ -111,6 +111,19 @@ export function InjuryScanner() {
     enabled: !!user?.dbId,
   });
 
+  // Add this near your other useQuery/useMutation hooks
+  const updatePetDetailsMutation = useMutation({
+    mutationFn: async (data: Partial<Pet>) => {
+      if (!selectedPetId) return;
+      const response = await apiRequest("PATCH", `/api/pets/${selectedPetId}`, data);
+      if (!response.ok) throw new Error('Failed to update pet details');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pets", user?.dbId] });
+    }
+  });
+
   // Create pet mutation (mirrors home.tsx logic)
   const createPetMutation = useMutation({
     mutationFn: async (pet: Omit<Pet, "id">) => {
@@ -171,7 +184,7 @@ export function InjuryScanner() {
   }, [user?.email, isPaid]);
 
   // Handle new pet photo upload (same flow as home.tsx analyzeImage)
-  const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
+const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE) {
@@ -181,39 +194,80 @@ export function InjuryScanner() {
 
     setIsCreatingPet(true);
     try {
-      const base64 = await compressImage(file);
-      setNewPetImagePreview(base64);
+      // 1. ALWAYS compress the image first to make it extremely lightweight!
+      // This stops the terminal from choking on massive strings and speeds up the AI call.
+      // We pass 0.6 quality to crunch it down significantly.
+      const compressedDataUrl = await compressImage(file, 0.6); 
+      
+      setNewPetImagePreview(compressedDataUrl);
+      
+      // Extract just the base64 string for the AI (remove the data:image/jpeg;base64, prefix)
+      const base64 = compressedDataUrl.split(",")[1];
 
-      // Call same analyze endpoint home.tsx uses to create pet profile
-      const res = await apiRequest("POST", "/api/analyze", {
+      // 2. Call AI Analysis with the COMPRESSED, tiny image
+      const analyzeRes = await apiRequest("POST", "/api/analyze", {
         imageData: base64,
         userId: user?.dbId,
       });
-      if (!res.ok) {
-        const err = await res.json();
+
+      if (!analyzeRes.ok) {
+        const err = await analyzeRes.json();
         throw new Error(err.details || "Analysis failed");
       }
-      const newPet: Pet = await res.json();
+      
+      const analysis = await analyzeRes.json(); 
 
-      // Pet was auto-created by /api/analyze — just navigate into scan flow
-      setPetInfo({
-        species: newPet.species || "",
-        breed: newPet.breed || "",
-        weight: newPet.weight || "",
-        age: (newPet as any).age || "",
-        gender: newPet.gender || "",
-      });
-      setSelectedPetId(newPet.id);
-      setStep("pet_details");
-      toast({ title: "Pet identified!", description: "Verify the details and continue to injury scan." });
+      // 3. Create the Pet in the database using the same COMPRESSED image
+      await createPetMutation.mutateAsync({
+        name: "New Pet",
+        userId: user?.dbId || 0,
+        species: analysis.species || "Unknown",
+        breed: analysis.breed ?? null,
+        gender: analysis.gender ?? null,
+        imageUrl: compressedDataUrl, // Use the lightweight string here!
+        imageGallery: [],
+        lastMoodUpdate: null,
+        careRecommendations: analysis.careRecommendations ?? [],
+        weight: analysis.weight ?? null,
+        size: analysis.size ?? null,
+        lifespan: analysis.lifespan ?? null,
+        vetCareFrequency: analysis.vetCareFrequency ?? null,
+        vetCareDetails: analysis.vetCareDetails ?? [],
+        groomingSchedule: analysis.groomingSchedule ?? null,
+        groomingDetails: analysis.groomingDetails ?? [],
+        groomingVideos: (analysis.groomingVideos || []).map((v: any) => JSON.stringify(v)),
+        dietType: analysis.dietType ?? null,
+        foodRecommendations: analysis.foodRecommendations ?? [],
+        feedingSchedule: analysis.feedingSchedule ?? null,
+        portionSize: analysis.portionSize ?? null,
+        nutritionalNeeds: analysis.nutritionalNeeds ?? [],
+        foodRestrictions: analysis.foodRestrictions ?? [],
+        treatRecommendations: analysis.treatRecommendations ?? [],
+        currentMood: analysis.currentMood ?? null,
+        moodDescription: analysis.moodDescription ?? null,
+        moodRecommendations: analysis.moodRecommendations ?? [],
+        trainingLevel: analysis.trainingLevel ?? null,
+        exerciseNeeds: analysis.exerciseNeeds ?? null,
+        exerciseSchedule: analysis.exerciseSchedule ?? null,
+        exerciseDuration: analysis.exerciseDuration ?? null,
+        trainingDetails: analysis.trainingDetails ?? [],
+        trainingVideos: (analysis.trainingVideos || []).map((v: any) => JSON.stringify(v)),
+        trainingSchedule: analysis.trainingSchedule ?? null,
+        exerciseType: analysis.exerciseType ?? null,
+        trainingProgress: analysis.trainingProgress ?? null,
+        vaccinationRecords: [],
+        vaccinationSchedule: null,
+        nextVaccinationDue: null,
+        vaccinationNotes: null,
+      } as any);
+
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Identification Failed", description: "Could not identify pet. Please enter details manually." });
+      toast({ variant: "destructive", title: "Identification Failed", description: err.message || "Could not identify pet." });
       setStep("pet_details");
     } finally {
       setIsCreatingPet(false);
     }
   };
-
   // When user selects existing pet → pre-fill petInfo → go to pet_details
   const handleSelectExistingPet = (pet: Pet) => {
     setSelectedPetId(pet.id);
@@ -508,7 +562,7 @@ export function InjuryScanner() {
         <Card className="border-[#ff6b4a]/20 shadow-lg">
           <CardHeader>
             <CardTitle>Verify Pet Information</CardTitle>
-            <CardDescription>Confirm details before the injury scan.</CardDescription>
+            <CardDescription>Confirm and add missing details before the injury scan.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -521,8 +575,8 @@ export function InjuryScanner() {
                 <Input value={petInfo.breed} onChange={(e) => setPetInfo({ ...petInfo, breed: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Weight (Lbs)</Label>
-                <Input value={petInfo.weight} onChange={(e) => setPetInfo({ ...petInfo, weight: e.target.value })} />
+                <Label>Weight (e.g. 25 lbs) <span className="text-red-500">*</span></Label>
+                <Input placeholder="e.g. 25 lbs" value={petInfo.weight} onChange={(e) => setPetInfo({ ...petInfo, weight: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Age (Years) <span className="text-red-500">*</span></Label>
@@ -544,14 +598,26 @@ export function InjuryScanner() {
             <Button
               className="w-full bg-[#ff6b4a] hover:bg-[#e05a3b]"
               onClick={() => {
-                if (!petInfo.age || !petInfo.gender) {
+                if (!petInfo.age || !petInfo.gender || !petInfo.weight) {
                   toast({
                     variant: "destructive",
                     title: "Required Fields",
-                    description: "Please enter your pet's age and gender to continue.",
+                    description: "Please enter your pet's age, gender, and weight to continue.",
                   });
                   return;
                 }
+                
+                // SAVE data to the database before moving to injury scan
+                if (selectedPetId) {
+                  updatePetDetailsMutation.mutate({
+                    species: petInfo.species,
+                    breed: petInfo.breed,
+                    weight: petInfo.weight,
+                    age: petInfo.age,
+                    gender: petInfo.gender,
+                  } as any);
+                }
+
                 setStep("injury_photo");
               }}
             >
@@ -721,7 +787,15 @@ export function InjuryScanner() {
             {isUnlocked ? (
               <Button
                 className="gap-2 bg-[#ff6b4a] hover:bg-[#e05a3b] px-8 py-6 text-lg font-bold shadow-lg shadow-orange-500/20 animate-in fade-in zoom-in duration-300"
-                onClick={() => setLocation("/vet")}
+                onClick={() => {
+                const injuryContext = encodeURIComponent(JSON.stringify({
+                  petId: selectedPetId,
+                  petInfo,
+                  injuryDescription: analysis?.injuryDescription,
+                  severity: analysis?.severity,
+                }));
+                setLocation(`/vet?injuryContext=${injuryContext}`);
+              }}
               >
                 Start Consultation <MessageSquare className="w-5 h-5 ml-1" />
               </Button>

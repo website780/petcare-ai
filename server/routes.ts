@@ -2171,5 +2171,36 @@ Always respond in valid JSON format.`
     }
   });
 
+  app.post("/api/chat/initial-questions", async (req, res) => {
+  try {
+    const { petSpecies, petBreed, severity } = req.body;
+    
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a vet. Generate 4 specific follow-up questions for a ${petSpecies}${petBreed ? ` ${petBreed}` : ''} with a ${severity || 'potential'} injury. Return JSON with "questions" array of 4 strings.`
+        },
+        {
+          role: "user",
+          content: `Generate 4 questions to ask owner about this ${petSpecies}${petBreed ? ` ${petBreed}` : ''}'s condition.`
+        }
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 500
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("No content");
+    
+    const data = JSON.parse(content);
+    res.json({ questions: data.questions });
+  } catch (error) {
+    console.error("Error generating questions:", error);
+    res.status(500).json({ error: "Failed to generate questions" });
+  }
+});
+
   return createServer(app);
 }

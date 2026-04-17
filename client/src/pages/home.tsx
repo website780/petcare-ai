@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, Loader2, Heart, LogOut, Sparkles, PawPrint } from "lucide-react";
+import { Upload, Loader2, Heart, LogOut, Sparkles, PawPrint, ArrowLeft } from "lucide-react";
 import { SiFacebook } from "react-icons/si";
 import { type Pet, type AnalyzeImageResponse, insertPetSchema } from "@shared/schema";
 import { useLocation } from "wouter";
@@ -431,8 +431,8 @@ const onDrop = async (acceptedFiles: File[]) => {
       ) : !showUploader ? (
         <>
           <Header />
-          <div className="flex-1 flex items-center justify-center w-full py-12 md:py-20 relative z-10">
-            <div className="w-[92%] max-w-5xl mx-auto px-6 md:px-12 py-16 md:py-20 flex flex-col items-center text-center bg-white/20 dark:bg-black/20 backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] rounded-[3rem]">
+          <div className="flex-1 flex items-center justify-center w-full py-12 relative z-10">
+            <div className="w-[92%] max-w-6xl mx-auto px-6 md:px-12 py-16 md:py-20 flex flex-col items-center text-center bg-white/20 dark:bg-black/20 backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] rounded-[3rem]">
               <h1 className="text-5xl md:text-7xl font-extrabold mb-6 tracking-tight text-[#0a0a0a] transition-transform duration-500 cursor-default">
               Take Care of your Best Friend
             </h1>
@@ -440,14 +440,13 @@ const onDrop = async (acceptedFiles: File[]) => {
               We will help you to provide guided care for your furry and non-furry friends
             </p>
 
-            <div className="w-full max-w-2xl mb-12 relative group cursor-default">
-              <div className="absolute inset-0 bg-primary/10 blur-3xl rounded-full scale-90 group-hover:bg-primary/20 transition-colors duration-500" />
+{/*            
               <img
                 src={petCareImage}
                 alt="Pet care illustration"
-                className="w-full h-auto relative z-10 drop-shadow-2xl group-hover:scale-[1.03] transition-transform duration-500"
-              />
-            </div>
+                className="w-full h-50 relative z-10 drop-shadow-2xl group-hover:scale-[1.03] transition-transform duration-500"
+              /> */}
+            
 
             <div className="flex flex-col items-center gap-4">
               <Button
@@ -508,14 +507,23 @@ const onDrop = async (acceptedFiles: File[]) => {
                   ))}
                 </div>
               </div>
-            ) : <p className="text-muted-foreground text-center py-12">You haven't added any pets yet. Click the button above to get started!</p>}
+            ) : null}
             </div>
         </>
       ) : (
         <>
           <Header />
           <div className="container max-w-4xl mx-auto px-4 py-12 relative z-10">
-            <div className="w-full flex justify-end mb-4">
+            <div className="w-full flex justify-between items-center mb-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowUploader(false)}
+                className="gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back 
+              </Button>
+
               <Button
                 variant="outline"
                 onClick={handleSignOut}
