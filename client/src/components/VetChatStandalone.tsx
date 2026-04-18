@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { 
   Upload, Loader2, MessageSquare, Send, User, 
   ChevronRight, Sparkles, CheckCircle2, Lock, CreditCard,
-  PawPrint, Plus
+  PawPrint, Plus, RotateCcw, ArrowLeft
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
@@ -116,6 +116,7 @@ export function VetChatStandalone() {
       return res.json();
     },
     onSuccess: (newPet) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/pets", user?.dbId] });
       setPetInfo({
         species: newPet.species || "",
@@ -303,6 +304,15 @@ export function VetChatStandalone() {
         throw new Error(err.details || "Analysis failed");
       }
       const analysis = await analyzeRes.json();
+
+      // BREED FIX: Populating form immediately so user sees it right away
+      setPetInfo(prev => ({
+        ...prev,
+        species: analysis.species || prev.species,
+        breed: analysis.breed || prev.breed,
+        weight: analysis.weight || prev.weight,
+        gender: analysis.gender || prev.gender
+      }));
 
       await createPetMutation.mutateAsync({
         name: "New Pet",
@@ -600,6 +610,22 @@ export function VetChatStandalone() {
                 if (credits <= 0) {
                   handleBuyCredits();
                 } else {
+                  // GLOBAL SYNC: Save details back to the database so they reflect everywhere
+                  if (selectedPetId) {
+                    try {
+                      await apiRequest("PATCH", `/api/pets/${selectedPetId}`, {
+                        age: petInfo.age,
+                        gender: petInfo.gender,
+                        weight: petInfo.weight,
+                        breed: petInfo.breed
+                      });
+                      queryClient.invalidateQueries({ queryKey: ["/api/pets"] });
+                      queryClient.invalidateQueries({ queryKey: [`/api/pets/${selectedPetId}`] });
+                    } catch (e) {
+                      console.error("Failed to sync pet details to database");
+                    }
+                  }
+
                   setStep("chat");
                   // Initialize an empty chat in the Database immediately so it persists on refresh
                   try {
@@ -630,10 +656,36 @@ export function VetChatStandalone() {
           <div className="lg:col-span-2 space-y-4">
             <Card className="h-[600px] flex flex-col border-2 border-[#0a0a0a] rounded-2xl overflow-hidden shadow-2xl">
               <CardHeader className="bg-[#0a0a0a] text-white py-4 shrink-0 rounded-t-xl rounded-b-none">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  Live AI Vet Chat
-                </CardTitle>
+                <div className="flex items-center justify-between w-full">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    Live AI Vet Chat
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        setChatHistory([]);
+                        setCurrentChatId(null);
+                        toast({ title: "Started a fresh conversation" });
+                      }}
+                      className="h-8 bg-white/10 border-white/20 hover:bg-white/20 text-white"
+                    >
+                      <RotateCcw className="w-3 h-3 mr-2" />
+                      New Chat
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setStep("pet_select")}
+                      className="h-8 text-white hover:bg-white/10"
+                    >
+                      <ArrowLeft className="w-3 h-3 mr-2" />
+                      Back
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               
               <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/10">

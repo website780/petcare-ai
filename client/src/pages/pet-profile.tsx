@@ -113,6 +113,7 @@ export default function PetProfile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/pets/${id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pets"] });
       toast({ title: "Pet details updated successfully" });
     },
     onError: () => {

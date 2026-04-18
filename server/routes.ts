@@ -371,8 +371,8 @@ export function registerRoutes(app: Express): Server {
       }
 
       if (targetUser) {
-        if (Number(targetUser.freeScanUsed) === 1) {
-          return res.status(403).json({ error: "Free scan limit reached. Please upgrade to continue." });
+        if (Number(targetUser.freeScanUsed) >= 2) {
+          return res.status(403).json({ error: "Scan limit reached. Please unlock more scans to continue." });
         }
       }
 
@@ -478,12 +478,11 @@ export function registerRoutes(app: Express): Server {
       if (!user) return res.status(404).json({ error: "User not found" });
 
       let isPaid = 0;
-      // Implement 1-free-scan logic (Falsy friendly for null/0)
-      if (!user.freeInjuryScanUsed) {
-        console.log(`[SCAN-INJURY] Consuming free INJURY credit for user ${user.id}`);
+      if (Number(user.freeInjuryScanUsed || 0) < 2) {
+        console.log(`[SCAN-INJURY] Consuming INJURY credit for user ${user.id}`);
         isPaid = 1;
-        // When free injury scan is used, only set freeInjuryScanUsed to 1
-        await storage.updateUserCredits(user.id, 'freeInjuryScanUsed', 1);
+        // Increment the count until it hits the limit of 2
+        await storage.updateUserCredits(user.id, 'freeInjuryScanUsed', (Number(user.freeInjuryScanUsed || 0) + 1));
       }
 
       const scan = await storage.createStandaloneScan({

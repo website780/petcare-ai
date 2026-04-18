@@ -452,7 +452,7 @@ const onDrop = async (acceptedFiles: File[]) => {
               <Button
                 size="lg"
                 onClick={() => {
-                  if (user?.freeScanUsed === 1) {
+                  if (Number(user?.freeScanUsed || 0) >= 2) {
                     handleCheckout();
                   } else {
                     setShowUploader(true);
@@ -460,7 +460,7 @@ const onDrop = async (acceptedFiles: File[]) => {
                 }}
                 className="text-xl px-12 py-8 bg-[#ff6b4a] hover:bg-[#e05a3b] text-white border-transparent shadow-[0_20px_50px_rgba(255,107,74,0.3)] hover:shadow-[0_25px_60px_rgba(255,107,74,0.5)] hover:-translate-y-2 active:translate-y-0 active:scale-95 transition-all duration-300 ease-out rounded-full"
               >
-                {user?.freeScanUsed === 1 ? 'Unlock Unlimited Scans' : 'Get Guided Care'}
+                {Number(user?.freeScanUsed || 0) >= 2 ? 'Unlock Unlimited Scans' : 'Get Guided Care'}
               </Button>
 
               {fulfillmentStatus && (
