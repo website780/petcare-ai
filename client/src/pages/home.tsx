@@ -104,7 +104,7 @@ export default function Home() {
       }
     };
 
-    if (user?.freeScanUsed === 1) {
+    if (Number(user?.freeScanUsed || 0) >= 2) {
       // Initial check
       checkFulfillment();
       // Periodically check every 10 seconds

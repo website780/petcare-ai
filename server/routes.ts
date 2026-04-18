@@ -442,10 +442,10 @@ export function registerRoutes(app: Express): Server {
 
       const analysis = JSON.parse(content);
 
-      // NUCLEAR FIX: Only decrement credit AFTER successful AI response
-      if (targetUser && !targetUser.freeScanUsed) {
+      // Increment scan credit AFTER successful AI response
+      if (targetUser && Number(targetUser.freeScanUsed || 0) < 2) {
         console.log(`[SCAN-SUCCESS] Consuming credit for user ${targetUser.id}`);
-        await storage.updateUserCredits(targetUser.id, 'freeScanUsed', 1);
+        await storage.updateUserCredits(targetUser.id, 'freeScanUsed', (Number(targetUser.freeScanUsed || 0) + 1));
       }
 
       res.json(analysis);

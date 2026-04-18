@@ -670,7 +670,7 @@ export function VetChatStandalone() {
                         setCurrentChatId(null);
                         toast({ title: "Started a fresh conversation" });
                       }}
-                      className="h-8 bg-white/10 border-white/20 hover:bg-white/20 text-white"
+                      className="h-8 bg-white/10 border-white/20 hover:bg-[#ff6b4a] hover:border-[#ff6b4a] hover:text-white transition-all duration-300"
                     >
                       <RotateCcw className="w-3 h-3 mr-2" />
                       New Chat
@@ -679,7 +679,7 @@ export function VetChatStandalone() {
                       variant="ghost" 
                       size="sm" 
                       onClick={() => setStep("pet_select")}
-                      className="h-8 text-white hover:bg-white/10"
+                      className="h-8 text-white hover:bg-[#ff6b4a] hover:text-white transition-all duration-300"
                     >
                       <ArrowLeft className="w-3 h-3 mr-2" />
                       Back
