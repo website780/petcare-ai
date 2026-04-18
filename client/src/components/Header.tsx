@@ -1,4 +1,4 @@
-import { LogOut, User } from "lucide-react";
+import { LogOut, PawPrint, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { Link, useLocation } from "wouter";
@@ -46,7 +46,7 @@ export function Header() {
 
           <div className="flex items-center gap-3 sm:gap-4 md:gap-6">
             <Button className="hidden md:flex bg-[#ff6b4a] hover:bg-[#e05a3b] text-white rounded-full px-6 transition-all duration-300 font-semibold shadow-md hover:shadow-lg">
-              Download The App <span className="ml-2 text-lg">🐾</span>
+              Download The App  <PawPrint className="w-10 h-10 text-[#fff]" /> 
             </Button>
             
             <DropdownMenu>

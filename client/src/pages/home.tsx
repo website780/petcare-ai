@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, Loader2, Heart, LogOut, User } from "lucide-react";
+import { Upload, Loader2, Heart, LogOut, Sparkles, PawPrint, ArrowLeft } from "lucide-react";
 import { SiFacebook } from "react-icons/si";
 import { type Pet, type AnalyzeImageResponse, insertPetSchema } from "@shared/schema";
 import { useLocation } from "wouter";
@@ -116,8 +116,8 @@ export default function Home() {
     };
   }, [user?.freeScanUsed, refreshUser, toast]);
 
-  const { data: pets } = useQuery<Pet[]>({
-    queryKey: ["/api/pets", user?.dbId], // Updated to use dbId instead of id
+const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
+    queryKey: ["/api/pets", user?.dbId],
     queryFn: async () => {
       if (!user) throw new Error("User not authenticated");
       const numericId = user?.dbId;
@@ -126,7 +126,7 @@ export default function Home() {
       const data = await response.json();
       return data;
     },
-    enabled: !!user?.dbId, // Updated to use dbId
+    enabled: !!user?.dbId,
   });
 
   const analyzeImage = useMutation({
@@ -185,7 +185,7 @@ export default function Home() {
     }
   });
 
-  const onDrop = async (acceptedFiles: File[]) => {
+const onDrop = async (acceptedFiles: File[]) => {
     if (user?.freeScanUsed === 1) {
       toast({
         variant: "destructive",
@@ -207,95 +207,99 @@ export default function Home() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setImagePreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    // Convert file to Data URL reliably via Promise
+    const fileDataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
 
-    const base64Reader = new FileReader();
-    base64Reader.onload = async () => {
-      const base64 = (base64Reader.result as string).split(",")[1];
-      try {
-        const analysis = await analyzeImage.mutateAsync(base64);
+    // Immediately set UI preview
+    setImagePreview(fileDataUrl);
 
-        if (pets) {
-          const duplicatePet = checkForDuplicatePet(analysis, pets);
-          if (duplicatePet) {
-            toast({
-              variant: "destructive",
-              title: "Similar pet already exists",
-              description: `You already have a ${analysis.species}${analysis.breed ? ` (${analysis.breed})` : ''} named ${duplicatePet.name} in your profile.`,
-            });
-            setImagePreview(null);
-            return;
-          }
+    // Extract base64 part for the AI analysis
+    const base64 = fileDataUrl.split(",")[1];
+    
+    try {
+      const analysis = await analyzeImage.mutateAsync(base64);
+
+      if (pets) {
+        const duplicatePet = checkForDuplicatePet(analysis, pets);
+        if (duplicatePet) {
+          toast({
+            variant: "destructive",
+            title: "Similar pet already exists",
+            description: `You already have a ${analysis.species}${analysis.breed ? ` (${analysis.breed})` : ''} named ${duplicatePet.name} in your profile.`,
+          });
+          setImagePreview(null);
+          return;
         }
-
-        // Compress the image while maintaining high quality
-        let imageToUpload = imagePreview;
-        if (file.size > 5 * 1024 * 1024) { // Only compress if over 5MB
-          try {
-            imageToUpload = await compressImage(file);
-          } catch (error) {
-            console.error('Error compressing image:', error);
-            // Continue with original image if compression fails
-          }
-        }
-
-        await createPet.mutateAsync({
-          name: "New Pet",
-          userId: user?.dbId || 0,
-          species: analysis.species,
-          breed: analysis.breed ?? null,
-          gender: analysis.gender ?? null,
-          imageUrl: imageToUpload,
-          imageGallery: [],
-          lastMoodUpdate: null,
-          careRecommendations: analysis.careRecommendations ?? [],
-          weight: analysis.weight ?? null,
-          size: analysis.size ?? null,
-          lifespan: analysis.lifespan ?? null,
-          vetCareFrequency: analysis.vetCareFrequency ?? null,
-          vetCareDetails: analysis.vetCareDetails ?? [],
-          groomingSchedule: analysis.groomingSchedule ?? null,
-          groomingDetails: analysis.groomingDetails ?? [],
-          groomingVideos: (analysis.groomingVideos || []).map(video => JSON.stringify(video)),
-          dietType: analysis.dietType ?? null,
-          foodRecommendations: analysis.foodRecommendations ?? [],
-          feedingSchedule: analysis.feedingSchedule ?? null,
-          portionSize: analysis.portionSize ?? null,
-          nutritionalNeeds: analysis.nutritionalNeeds ?? [],
-          foodRestrictions: analysis.foodRestrictions ?? [],
-          treatRecommendations: analysis.treatRecommendations ?? [],
-          currentMood: analysis.currentMood ?? null,
-          moodDescription: analysis.moodDescription ?? null,
-          moodRecommendations: analysis.moodRecommendations ?? [],
-          trainingLevel: analysis.trainingLevel ?? null,
-          exerciseNeeds: analysis.exerciseNeeds ?? null,
-          exerciseSchedule: analysis.exerciseSchedule ?? null,
-          exerciseDuration: analysis.exerciseDuration ?? null,
-          trainingDetails: analysis.trainingDetails ?? [],
-          trainingVideos: (analysis.trainingVideos || []).map(video => JSON.stringify(video)),
-          trainingSchedule: analysis.trainingSchedule ?? null,
-          exerciseType: analysis.exerciseType ?? null,
-          trainingProgress: analysis.trainingProgress ?? null,
-          vaccinationRecords: [],
-          vaccinationSchedule: null,
-          nextVaccinationDue: null,
-          vaccinationNotes: null,
-        });
-        await refreshUser();
-      } catch (error) {
-        console.error('Error analyzing image:', error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to analyze image",
-        });
       }
-    };
-    base64Reader.readAsDataURL(file);
+
+      // Ensure we use the loaded file string, or compress if it's too large
+      let imageToUpload = fileDataUrl;
+      if (file.size > 5 * 1024 * 1024) { // Only compress if over 5MB
+        try {
+          imageToUpload = await compressImage(file);
+        } catch (error) {
+          console.error('Error compressing image:', error);
+          // Continue with original imageToUpload if compression fails
+        }
+      }
+
+      await createPet.mutateAsync({
+        name: "New Pet",
+        userId: user?.dbId || 0,
+        species: analysis.species,
+        breed: analysis.breed ?? null,
+        gender: analysis.gender ?? null,
+        imageUrl: imageToUpload, // This now safely contains your initial image
+        imageGallery: [],
+        lastMoodUpdate: null,
+        careRecommendations: analysis.careRecommendations ?? [],
+        weight: analysis.weight ?? null,
+        size: analysis.size ?? null,
+        lifespan: analysis.lifespan ?? null,
+        vetCareFrequency: analysis.vetCareFrequency ?? null,
+        vetCareDetails: analysis.vetCareDetails ?? [],
+        groomingSchedule: analysis.groomingSchedule ?? null,
+        groomingDetails: analysis.groomingDetails ?? [],
+        groomingVideos: (analysis.groomingVideos || []).map(video => JSON.stringify(video)),
+        dietType: analysis.dietType ?? null,
+        foodRecommendations: analysis.foodRecommendations ?? [],
+        feedingSchedule: analysis.feedingSchedule ?? null,
+        portionSize: analysis.portionSize ?? null,
+        nutritionalNeeds: analysis.nutritionalNeeds ?? [],
+        foodRestrictions: analysis.foodRestrictions ?? [],
+        treatRecommendations: analysis.treatRecommendations ?? [],
+        currentMood: analysis.currentMood ?? null,
+        moodDescription: analysis.moodDescription ?? null,
+        moodRecommendations: analysis.moodRecommendations ?? [],
+        trainingLevel: analysis.trainingLevel ?? null,
+        exerciseNeeds: analysis.exerciseNeeds ?? null,
+        exerciseSchedule: analysis.exerciseSchedule ?? null,
+        exerciseDuration: analysis.exerciseDuration ?? null,
+        trainingDetails: analysis.trainingDetails ?? [],
+        trainingVideos: (analysis.trainingVideos || []).map(video => JSON.stringify(video)),
+        trainingSchedule: analysis.trainingSchedule ?? null,
+        exerciseType: analysis.exerciseType ?? null,
+        trainingProgress: analysis.trainingProgress ?? null,
+        vaccinationRecords: [],
+        vaccinationSchedule: null,
+        nextVaccinationDue: null,
+        vaccinationNotes: null,
+      });
+      await refreshUser();
+    } catch (error) {
+      console.error('Error analyzing image:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to analyze image",
+      });
+      setImagePreview(null);
+    }
   };
 
   const handleCheckout = async () => {
@@ -427,8 +431,8 @@ export default function Home() {
       ) : !showUploader ? (
         <>
           <Header />
-          <div className="flex-1 flex items-center justify-center w-full py-12 md:py-20 relative z-10">
-            <div className="w-[92%] max-w-5xl mx-auto px-6 md:px-12 py-16 md:py-20 flex flex-col items-center text-center bg-white/20 dark:bg-black/20 backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] rounded-[3rem]">
+          <div className="flex-1 flex items-center justify-center w-full py-12 relative z-10">
+            <div className="w-[92%] max-w-6xl mx-auto px-6 md:px-12 py-16 md:py-20 flex flex-col items-center text-center bg-white/20 dark:bg-black/20 backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] rounded-[3rem]">
               <h1 className="text-5xl md:text-7xl font-extrabold mb-6 tracking-tight text-[#0a0a0a] transition-transform duration-500 cursor-default">
               Take Care of your Best Friend
             </h1>
@@ -436,14 +440,13 @@ export default function Home() {
               We will help you to provide guided care for your furry and non-furry friends
             </p>
 
-            <div className="w-full max-w-2xl mb-12 relative group cursor-default">
-              <div className="absolute inset-0 bg-primary/10 blur-3xl rounded-full scale-90 group-hover:bg-primary/20 transition-colors duration-500" />
+{/*            
               <img
                 src={petCareImage}
                 alt="Pet care illustration"
-                className="w-full h-auto relative z-10 drop-shadow-2xl group-hover:scale-[1.03] transition-transform duration-500"
-              />
-            </div>
+                className="w-full h-50 relative z-10 drop-shadow-2xl group-hover:scale-[1.03] transition-transform duration-500"
+              /> */}
+            
 
             <div className="flex flex-col items-center gap-4">
               <Button
@@ -468,12 +471,59 @@ export default function Home() {
             </div>
           </div>
         </div>
+<div className="container max-w-4xl mx-auto px-4 py-12 relative z-10">
+         {isLoadingPets ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-[#ff6b4a] mb-4" />
+                <p className="text-muted-foreground font-medium animate-pulse">Loading your pets...</p>
+              </div>
+            ) : pets && pets.length > 0 ? (
+              <div>
+                <h2 className="text-2xl font-semibold mb-4">Your Pets</h2>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {pets.map((pet) => (
+                    <Card
+                      key={pet.id}
+                      className="cursor-pointer overflow-hidden border-border/50 bg-background/60 backdrop-blur-sm hover:shadow-xl hover:-translate-y-2 hover:border-primary/30 transition-all duration-300 ease-out group"
+                      onClick={() => setLocation(`/pet/${pet.id}`)}
+                    >
+                      <CardContent className="p-4">
+                        {pet.imageUrl && (
+                          <div className="relative w-full h-70 mb-5 overflow-hidden rounded-xl shadow-inner">
+                            <img
+                              src={pet.imageUrl}
+                              alt={pet.name}
+                              className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          </div>
+                        )}
+                        <h3 className="font-bold text-xl group-hover:text-primary transition-colors">{pet.name}</h3>
+                        <p className="text-sm font-medium text-muted-foreground mt-1">
+                          {pet.breed ? `${pet.species} • ${pet.breed}` : pet.species}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            </div>
         </>
       ) : (
         <>
           <Header />
           <div className="container max-w-4xl mx-auto px-4 py-12 relative z-10">
-            <div className="w-full flex justify-end mb-4">
+            <div className="w-full flex justify-between items-center mb-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowUploader(false)}
+                className="gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back 
+              </Button>
+
               <Button
                 variant="outline"
                 onClick={handleSignOut}
@@ -484,38 +534,84 @@ export default function Home() {
               </Button>
             </div>
 
+            {/* ── Dropzone card with rich AI-focused content ── */}
             <Card className="mb-12 border-0 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_60px_-15px_rgba(168,85,247,0.3)] transition-shadow duration-500 bg-card/60 backdrop-blur-xl overflow-hidden rounded-2xl">
               <CardContent className="pt-6 relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-pink-500/10 pointer-events-none" />
                 <div
                   {...getRootProps()}
-                  className={`border-2 border-dashed rounded-xl p-16 text-center cursor-pointer transition-all duration-500 ease-in-out relative z-10
-                    ${isDragActive ? "border-primary bg-primary/15 scale-105 shadow-inner" : "border-primary/50 hover:border-primary hover:bg-primary/5 hover:-translate-y-1"}
+                  className={`border-2 border-dashed rounded-xl p-10 md:p-16 text-center cursor-pointer transition-all duration-500 ease-in-out relative z-10
+                    ${isDragActive ? "border-[#ff6b4a] bg-[#ff6b4a]/10 scale-105 shadow-inner" : "border-primary/50 hover:border-primary hover:bg-primary/5 hover:-translate-y-1"}
                     ${isLoading ? "pointer-events-none opacity-50" : ""}`}
                 >
                   <input {...getInputProps()} />
+
                   {imagePreview ? (
+                    /* Preview state */
                     <img
                       src={imagePreview}
                       alt="Preview"
-                      className="max-h-64 mx-auto mb-4 rounded-lg"
+                      className="max-h-64 mx-auto mb-4 rounded-lg object-cover"
                     />
                   ) : (
-                    <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  )}
-                  {isLoading ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <p>Analyzing image...</p>
+                    /* Empty / drag-active state */
+                    <div className="flex flex-col items-center gap-3">
+                      <div className={`relative mb-2 transition-transform duration-300 ${isDragActive ? "scale-110" : ""}`}>
+                        <div className="w-20 h-20 rounded-full bg-[#ff6b4a]/10 flex items-center justify-center mx-auto">
+                          <PawPrint className="w-10 h-10 text-[#ff6b4a]" />
+                        </div>
+                        <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                        </div>
+                      </div>
+
+                      <p className="text-xl md:text-2xl font-bold text-foreground">
+                        {isDragActive ? "Release to analyze your pet!" : "Drop your pet's photo here"}
+                      </p>
+
+                      <p className="text-sm md:text-base text-muted-foreground max-w-sm leading-relaxed">
+                        PetCare AI will instantly analyze the image and generate a complete care profile — breed, diet, grooming, training & more.
+                      </p>
+
+                      <div className="flex items-center gap-2 mt-1">
+                        <Upload className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">or click to select a photo · JPG, PNG up to 15MB</span>
+                      </div>
+
+                      {/* AI feature badges */}
+                      <div className="flex flex-wrap justify-center gap-2 mt-3">
+                        {["Breed Detection", "Diet Plan", "Grooming Guide", "Care Tips"].map((badge) => (
+                          <span
+                            key={badge}
+                            className="text-xs px-3 py-1 rounded-full bg-[#ff6b4a]/10 text-[#ff6b4a] font-medium border border-[#ff6b4a]/20"
+                          >
+                            {badge}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  ) : (
-                    <p>Drag & drop a pet photo here, or click to select one</p>
+                  )}
+
+                  {isLoading && (
+                    <div className="flex flex-col items-center gap-3 mt-4">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#ff6b4a]" />
+                      <p className="text-sm font-medium text-muted-foreground animate-pulse">
+                        PetCare AI is analyzing your pet…
+                      </p>
+                    </div>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            {pets && pets.length > 0 && (
+            
+
+            {isLoadingPets ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-[#ff6b4a] mb-4" />
+                <p className="text-muted-foreground font-medium animate-pulse">Loading your pets...</p>
+              </div>
+            ) : pets && pets.length > 0 ? (
               <div>
                 <h2 className="text-2xl font-semibold mb-4">Your Pets</h2>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -545,7 +641,7 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </>
       )}
