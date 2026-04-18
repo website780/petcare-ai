@@ -1384,37 +1384,6 @@ Pet Owner: ${message}`
         ]));
       }
 
-      // If no training data exists, generate it using OpenAI
-      if (!req.body.trainingDetails || !req.body.exerciseNeeds) {
-        try {
-          console.log("Generating training plan for pet:", pet);
-          const trainingPlan = await generateTrainingPlan(pet);
-          console.log("Generated training plan:", trainingPlan);
-
-          req.body = {
-            ...req.body,
-            ...trainingPlan
-          };
-        } catch (error) {
-          console.error("Error generating training plan:", error);
-          // Fallback to defaults if OpenAI fails
-          req.body = {
-            ...req.body,
-            trainingDetails: [
-              "Basic Commands: Start with sit, stay, and come",
-              "Leash Training: Practice walking without pulling",
-              "Socialization: Expose to different environments and other pets",
-              "Positive Reinforcement: Reward good behavior with treats"
-            ],
-            trainingLevel: "Beginner",
-            exerciseNeeds: "Regular daily exercise needed",
-            exerciseSchedule: "Twice daily, morning and evening",
-            exerciseDuration: "30-45 minutes per session",
-            exerciseType: "Walks, play sessions, and training exercises"
-          };
-        }
-      }
-
       const updatedPet = await storage.updatePet(id, req.body);
       res.json(updatedPet);
     } catch (error) {
