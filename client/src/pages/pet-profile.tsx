@@ -106,7 +106,13 @@ export default function PetProfile() {
 
   const updatePetDetails = useMutation({
     mutationFn: async (data: Partial<Pet>) => {
-      const response = await apiRequest("PATCH", `/api/pets/${id}`, data);
+      // PERFORMANCE OPTIMIZATION: Stripping out image fields for simple text edits
+      // This prevents sending massive base64 strings when only the name/age is changed
+      const updateData = { ...data };
+      delete updateData.imageUrl;
+      delete updateData.imageGallery;
+      
+      const response = await apiRequest("PATCH", `/api/pets/${id}`, updateData);
       if (!response.ok) {
         throw new Error('Failed to update pet details');
       }

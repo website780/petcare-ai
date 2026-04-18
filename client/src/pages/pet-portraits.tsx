@@ -672,7 +672,9 @@ export default function PetPortraits() {
                 <Card
                   key={portrait.id}
                   className="overflow-hidden hover:shadow-lg transition-all cursor-pointer hover:scale-[1.02] hover:ring-2 hover:ring-purple-400"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                     setGeneratedPortrait(portrait.portraitImageUrl);
                     setSelectedStyle(portrait.style);
                     setPortraitId(portrait.id); // Important for checking paid status

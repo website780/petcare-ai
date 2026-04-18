@@ -610,38 +610,43 @@ export function VetChatStandalone() {
                 if (credits <= 0) {
                   handleBuyCredits();
                 } else {
-                  // GLOBAL SYNC: Save details back to the database so they reflect everywhere
-                  if (selectedPetId) {
-                    try {
-                      await apiRequest("PATCH", `/api/pets/${selectedPetId}`, {
-                        age: petInfo.age,
-                        gender: petInfo.gender,
-                        weight: petInfo.weight,
-                        breed: petInfo.breed
-                      });
-                      queryClient.invalidateQueries({ queryKey: ["/api/pets"] });
-                      queryClient.invalidateQueries({ queryKey: [`/api/pets/${selectedPetId}`] });
-                    } catch (e) {
-                      console.error("Failed to sync pet details to database");
-                    }
-                  }
-
                   setStep("chat");
-                  // Initialize an empty chat in the Database immediately so it persists on refresh
-                  try {
-                    const res = await apiRequest("POST", "/api/standalone/vet-chat", {
-                      userId: user?.dbId,
-                      petInfo: petInfo,
-                      chatHistory: []
-                    });
-                    const data = await res.json();
-                    if (data.id) setCurrentChatId(data.id);
-                  } catch (e) {
-                     console.error("Failed to initialize empty session.");
-                  }
-
-                  // Trigger dynamic API questions load
-                  fetchInitialQuestions(petInfo.species, petInfo.breed);
+                  // Trigger all setup tasks in PARALLEL for maximum speed
+                  Promise.all([
+                    // 1. Sync pet details (Global Sync)
+                    (async () => {
+                      if (selectedPetId) {
+                        try {
+                          await apiRequest("PATCH", `/api/pets/${selectedPetId}`, {
+                            age: petInfo.age,
+                            gender: petInfo.gender,
+                            weight: petInfo.weight,
+                            breed: petInfo.breed
+                          });
+                          queryClient.invalidateQueries({ queryKey: ["/api/pets"] });
+                          queryClient.invalidateQueries({ queryKey: [`/api/pets/${selectedPetId}`] });
+                        } catch (e) {
+                          console.error("Failed to sync pet details to database");
+                        }
+                      }
+                    })(),
+                    // 2. Initialize chat session
+                    (async () => {
+                      try {
+                        const res = await apiRequest("POST", "/api/standalone/vet-chat", {
+                          userId: user?.dbId,
+                          petInfo: petInfo,
+                          chatHistory: []
+                        });
+                        const data = await res.json();
+                        if (data.id) setCurrentChatId(data.id);
+                      } catch (e) {
+                         console.error("Failed to initialize empty session.");
+                      }
+                    })(),
+                    // 3. Fetch initial questions
+                    fetchInitialQuestions(petInfo.species, petInfo.breed)
+                  ]);
                 }
               }}
             >
