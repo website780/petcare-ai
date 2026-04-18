@@ -45,9 +45,16 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-3 sm:gap-4 md:gap-6">
-            <Button className="hidden md:flex bg-[#ff6b4a] hover:bg-[#e05a3b] text-white rounded-full px-6 transition-all duration-300 font-semibold shadow-md hover:shadow-lg">
-              Download The App  <PawPrint className="w-10 h-10 text-[#fff]" /> 
-            </Button>
+            <a 
+              href="https://apps.apple.com/us/app/pet-care-ai-pet-wellness-app/id6744159910" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hidden md:block"
+            >
+              <Button className="bg-[#ff6b4a] hover:bg-[#e05a3b] text-white rounded-full px-6 transition-all duration-300 font-semibold shadow-md hover:shadow-lg gap-2">
+                Download The App <PawPrint className="w-5 h-5" /> 
+              </Button>
+            </a>
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
