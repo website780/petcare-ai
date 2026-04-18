@@ -186,11 +186,11 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
   });
 
 const onDrop = async (acceptedFiles: File[]) => {
-    if (user?.freeScanUsed === 1) {
+    if (Number(user?.freeScanUsed || 0) >= 2) {
       toast({
         variant: "destructive",
-        title: "Free limit reached",
-        description: "You have already used your free platform scan. Please use the Injury Scanner or AI Vet Chat to purchase more credits.",
+        title: "Scan limit reached",
+        description: "You have used your scans. Please unlock more to continue.",
       });
       return;
     }

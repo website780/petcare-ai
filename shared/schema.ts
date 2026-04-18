@@ -59,6 +59,7 @@ export const pets = pgTable("pets", {
   vaccinationSchedule: text("vaccination_schedule"),
   nextVaccinationDue: timestamp("next_vaccination_due"),
   vaccinationNotes: text("vaccination_notes"),
+  age: text("age"),
 });
 
 export const reminders = pgTable("reminders", {
@@ -276,7 +277,10 @@ export const insertPetSchema = createInsertSchema(pets, {
   moodRecommendations: z.array(z.string()).optional().default([]),
   imageGallery: z.array(z.string()).optional().default([]),
   vaccinationRecords: z.array(z.string()).optional().default([])
-}).omit({ id: true }).extend({gender: z.string().nullable().optional()});
+}).omit({ id: true }).extend({
+  gender: z.string().nullable().optional(),
+  age: z.string().nullable().optional()
+});
 
 export const insertReminderSchema = createInsertSchema(reminders)
   .omit({ id: true })

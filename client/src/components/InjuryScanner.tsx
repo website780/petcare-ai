@@ -402,7 +402,7 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
           <CardHeader className="text-center">
             <PawPrint className="w-12 h-12 mx-auto mb-2 text-[#ff6b4a]" />
             <CardTitle>
-              {user?.freeInjuryScanUsed === 1
+              {Number(user?.freeInjuryScanUsed || 0) >= 2
                 ? "Premium Analysis Required"
                 : isLoadingPets
                 ? "Loading your pets..."
@@ -411,8 +411,8 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
                 : "Step 1: Create a Pet Profile"}
             </CardTitle>
             <CardDescription>
-              {user?.freeInjuryScanUsed === 1
-                ? "You've used your free scan. Upgrade to continue."
+              {Number(user?.freeInjuryScanUsed || 0) >= 2
+                ? "You've used your scans. Upgrade to continue."
                 : pets && pets.length > 0
                 ? "Choose an existing pet or add a new one."
                 : "Upload a photo so AI can identify your pet, or enter details manually."}
@@ -421,7 +421,7 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
 
           <CardContent>
             {/* ── Paywall ── */}
-            {user?.freeInjuryScanUsed === 1 ? (
+            {Number(user?.freeInjuryScanUsed || 0) >= 2 ? (
               <div className="flex flex-col items-center gap-6 py-8">
                 <div className="bg-primary/5 rounded-2xl p-8 w-full text-center space-y-4">
                   <div className="text-3xl font-black">$4.99</div>
