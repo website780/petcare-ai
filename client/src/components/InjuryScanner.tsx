@@ -224,6 +224,7 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
         species: analysis.species || "Unknown",
         breed: analysis.breed ?? null,
         gender: analysis.gender ?? null,
+        age: (analysis as any).age ?? null,
         imageUrl: compressedDataUrl, // Use the lightweight string here!
         imageGallery: [],
         lastMoodUpdate: null,

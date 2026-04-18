@@ -254,6 +254,7 @@ const onDrop = async (acceptedFiles: File[]) => {
         species: analysis.species,
         breed: analysis.breed ?? null,
         gender: analysis.gender ?? null,
+        age: (analysis as any).age ?? null, // Match the new database schema
         imageUrl: imageToUpload, // This now safely contains your initial image
         imageGallery: [],
         lastMoodUpdate: null,
@@ -344,8 +345,8 @@ const onDrop = async (acceptedFiles: File[]) => {
       "image/*": [".jpeg", ".jpg", ".png"],
     },
     maxFiles: 1,
-    noClick: user?.freeScanUsed === 1,
-    noKeyboard: user?.freeScanUsed === 1,
+    noClick: Number(user?.freeScanUsed || 0) >= 2,
+    noKeyboard: Number(user?.freeScanUsed || 0) >= 2,
   });
 
   const isLoading = analyzeImage.isPending || createPet.isPending;

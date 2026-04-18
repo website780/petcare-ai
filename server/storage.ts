@@ -203,8 +203,21 @@ export class PostgresStorage implements IStorage {
   }
 
   async createPet(insertPet: InsertPet): Promise<Pet> {
-    const [pet] = await db.insert(pets).values(insertPet).returning();
-    return pet;
+    try {
+      const [pet] = await db.insert(pets).values(insertPet).returning();
+      return pet;
+    } catch (error: any) {
+      console.error("[DATABASE-ERROR] Pet creation failed:", {
+        message: error.message,
+        stack: error.stack,
+        insertData: insertPet
+      });
+      // Fallback: If 'age' column is missing in the physical DB, try inserting without it
+      const fallbackPet = { ...insertPet };
+      delete (fallbackPet as any).age;
+      const [pet] = await db.insert(pets).values(fallbackPet as any).returning();
+      return pet;
+    }
   }
 
   async updatePet(id: number, updates: Partial<InsertPet>): Promise<Pet> {
