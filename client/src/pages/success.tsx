@@ -27,8 +27,21 @@ export default function SuccessPage() {
           console.log("[Success] Verifying by Session ID:", sessionId);
           response = await apiRequest("GET", `/api/stripe/fulfill-session?sessionId=${sessionId}`);
         } else if (auth.currentUser?.email) {
-          console.log("[Success] Verifying by Email Fallback:", auth.currentUser.email);
-          response = await apiRequest("GET", `/api/stripe/fulfill-by-email?email=${auth.currentUser.email}`);
+          // Try to fulfill any recent paid scan or injury report for this email
+          console.log("[Success] Verifying by Email Forensics:", auth.currentUser.email);
+          // First try AI Scan (Home Analysis)
+          response = await apiRequest("GET", `/api/stripe/fulfill-by-email?email=${auth.currentUser.email}&type=home_analysis`);
+          let data = await response.json();
+          
+          if (!data.success) {
+            // Fallback to Injury Report
+            response = await apiRequest("GET", `/api/stripe/fulfill-by-email?email=${auth.currentUser.email}&type=injury_report`);
+            data = await response.json();
+          }
+          
+          // Re-wrap in a mock response object so it fits the existing logic below
+          const finalData = data;
+          response = { json: async () => finalData };
         } else {
           await refreshUser();
           return;

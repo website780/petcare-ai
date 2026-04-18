@@ -73,7 +73,7 @@ export default function Home() {
     
     const checkFulfillment = async () => {
       // Use Number() to be safe if DB returns string "1"
-      const isLocked = Number(user?.freeScanUsed ?? 0) === 1;
+      const isLocked = Number(user?.freeScanUsed ?? 0) >= 2;
       const userEmail = user?.email;
 
       if (isLocked && userEmail) {
