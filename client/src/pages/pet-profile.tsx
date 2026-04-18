@@ -205,12 +205,12 @@ export default function PetProfile() {
   }
 
   const sections = [
-    {
-      title: "Pet Details & Injury Scanner",
-      icon: Scan,
-      href: `/pet/${id}/details`,
-      description: "View pet details and scan injuries for treatment recommendations"
-    },
+    // {
+    //   title: "Pet Details & Injury Scanner",
+    //   icon: Scan,
+    //   href: `/pet/${id}/details`,
+    //   description: "View pet details and scan injuries for treatment recommendations"
+    // },
     {
       title: "Nutrition Guide",
       icon: Apple,
