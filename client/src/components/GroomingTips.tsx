@@ -7,7 +7,8 @@ import {
 } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Pet } from "@shared/schema";
 import { Scissors, Bath, Brush, Bone, Video } from "lucide-react";
@@ -343,67 +344,61 @@ export function GroomingTips({ pet }: GroomingTipsProps) {
   };
 
   return (
-    <Card className="p-6">
-      <h3 className="text-2xl font-semibold mb-4">Comprehensive Grooming Guide</h3>
-      {pet.groomingSchedule && (
-        <p className="text-muted-foreground mb-6">
-          <span className="font-medium">Recommended Schedule: </span>
-          {pet.groomingSchedule}
-        </p>
-      )}
+    <div className="space-y-10">
+      <div>
+        <h3 className="text-2xl font-black mb-1 tracking-tight">Care Protocol</h3>
+        {pet.groomingSchedule && (
+          <p className="text-muted-foreground mb-6 font-medium">
+            <span className="text-[#ff6b4a]">Recommended Cycle: </span>
+            {pet.groomingSchedule}
+          </p>
+        )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div>
-          <ScrollArea className="h-[600px] pr-4">
-            <Accordion type="single" collapsible className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          <div className="space-y-6">
+            <Accordion type="single" collapsible className="space-y-4 border-none">
               {groomingGuides.map((guide, guideIndex) => {
                 const GuideIcon = guide.icon;
                 return (
-                  <AccordionItem key={guideIndex} value={`guide-${guideIndex}`}>
-                    <AccordionTrigger className="hover:no-underline">
+                  <AccordionItem key={guideIndex} value={`guide-${guideIndex}`} className="border border-black/[0.04] rounded-2xl bg-white overflow-hidden shadow-sm hover:shadow-md transition-all">
+                    <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-muted/30 group">
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-3">
-                          <GuideIcon className="h-5 w-5" />
-                          <span className="text-left font-semibold">{guide.title}</span>
+                          <div className="w-10 h-10 rounded-xl bg-[#ff6b4a]/10 flex items-center justify-center group-hover:bg-[#ff6b4a] group-hover:text-white transition-all">
+                            <GuideIcon className="h-5 w-5" />
+                          </div>
+                          <span className="text-left font-black text-base">{guide.title}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground mr-2">
+                        <Badge variant="secondary" className="mr-2 font-bold bg-muted/60">
                           {guide.steps.filter((_, stepIndex) => 
                             groomingTasks[`grooming-${guideIndex}-${stepIndex}`]?.completed
-                          ).length} / {guide.steps.length} completed
-                        </div>
+                          ).length} / {guide.steps.length}
+                        </Badge>
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4 pt-2">
+                    <AccordionContent className="px-5 pb-5 pt-2">
+                      <div className="space-y-3">
                         {guide.steps.map((step, stepIndex) => {
                           const taskId = `grooming-${guideIndex}-${stepIndex}`;
+                          const isCompleted = groomingTasks[taskId]?.completed;
                           return (
-                            <div key={stepIndex} className="border rounded-lg p-4 bg-muted/20">
-                              <div className="flex items-start gap-3 mb-3">
-                                <div className="text-2xl flex-shrink-0 mt-1">
-                                  {getStepIcon(step.icon)}
-                                </div>
-                                <div className="flex-1">
-                                  <h4 className="font-semibold text-sm mb-1">
-                                    Step {stepIndex + 1}: {step.title}
-                                  </h4>
-                                  <p className="text-sm text-muted-foreground leading-relaxed">
-                                    {step.description}
-                                  </p>
-                                </div>
+                            <div key={stepIndex} className={`group flex items-start gap-3 p-4 rounded-xl border transition-all ${isCompleted ? 'bg-green-50/50 border-green-100' : 'bg-muted/20 border-transparent hover:border-black/[0.05]'}`}>
+                              <button 
+                                onClick={() => toggleTask(taskId)}
+                                className={`w-6 h-6 rounded-lg border-2 flex-shrink-0 mt-0.5 flex items-center justify-center transition-all ${isCompleted ? 'bg-green-500 border-green-500 text-white' : 'border-black/10 bg-white group-hover:border-[#ff6b4a]/50'}`}
+                              >
+                                {isCompleted && <Check className="w-4 h-4" />}
+                              </button>
+                              <div className="flex-1">
+                                <h4 className={`font-bold text-sm mb-0.5 ${isCompleted ? 'text-green-800 line-through opacity-70' : ''}`}>
+                                  {step.title}
+                                </h4>
+                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                  {step.description}
+                                </p>
                               </div>
-                              <div className="flex items-center space-x-2 ml-11">
-                                <Checkbox
-                                  id={taskId}
-                                  checked={groomingTasks[taskId]?.completed}
-                                  onCheckedChange={() => toggleTask(taskId)}
-                                />
-                                <label
-                                  htmlFor={taskId}
-                                  className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
-                                  Mark as completed
-                                </label>
+                              <div className="text-xl flex-shrink-0 opacity-50">
+                                {getStepIcon(step.icon)}
                               </div>
                             </div>
                           );
@@ -414,53 +409,67 @@ export function GroomingTips({ pet }: GroomingTipsProps) {
                 );
               })}
             </Accordion>
-          </ScrollArea>
-        </div>
+          </div>
 
-        <div>
-          <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Video className="h-5 w-5" />
-            Grooming Tutorial Videos
-          </h4>
-          {isLoadingVideos ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((n) => (
-                <div key={n} className="animate-pulse h-12 bg-muted rounded" />
-              ))}
-            </div>
-          ) : videos.length > 0 ? (
-            <div className="space-y-4">
-              {selectedVideo && (
-                <div className="relative pt-[56.25%] rounded-lg overflow-hidden bg-muted">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${selectedVideo}?autoplay=1`}
-                    className="absolute top-0 left-0 w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-              )}
-              <div className="space-y-2">
-                {videos.map((video) => (
-                  <Button
-                    key={video.id}
-                    variant={selectedVideo === video.id ? "default" : "outline"}
-                    className="w-full justify-start"
-                    onClick={() => setSelectedVideo(video.id)}
-                  >
-                    <Video className="h-4 w-4 mr-2" />
-                    {video.title}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-center">
-              No tutorial videos available for this pet.
-            </p>
-          )}
+          <div className="sticky top-4 space-y-6">
+            <Card className="border border-black/[0.04] shadow-sm rounded-2xl overflow-hidden bg-black/[0.01]">
+                <CardHeader className="p-5 pb-2">
+                    <CardTitle className="text-lg font-black flex items-center gap-2">
+                        <Video className="h-5 w-5 text-[#ff6b4a]" />
+                        Masterclasses
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-5 space-y-5">
+                    {isLoadingVideos ? (
+                        <div className="space-y-3">
+                            {[1, 2, 3].map((n) => (
+                                <div key={n} className="animate-pulse h-16 bg-muted rounded-xl" />
+                            ))}
+                        </div>
+                    ) : videos.length > 0 ? (
+                        <div className="space-y-4">
+                            {selectedVideo && (
+                                <div className="relative pt-[56.25%] rounded-xl overflow-hidden bg-black shadow-lg">
+                                    <iframe
+                                        src={`https://www.youtube.com/embed/${selectedVideo}?autoplay=0`}
+                                        className="absolute top-0 left-0 w-full h-full"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                    />
+                                </div>
+                            )}
+                            <ScrollArea className="h-[280px] -mx-1 px-1">
+                                <div className="space-y-2">
+                                    {videos.map((video) => (
+                                        <button
+                                            key={video.id}
+                                            className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${selectedVideo === video.id ? 'bg-[#ff6b4a] text-white shadow-md' : 'hover:bg-white border border-transparent hover:border-black/[0.05]'}`}
+                                            onClick={() => setSelectedVideo(video.id)}
+                                        >
+                                            <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center ${selectedVideo === video.id ? 'bg-white/20' : 'bg-muted'}`}>
+                                              <Video className="h-4 w-4" />
+                                            </div>
+                                            <span className="text-xs font-bold line-clamp-2">{video.title}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 px-4">
+                             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                                <Video className="w-6 h-6 text-muted-foreground/50" />
+                             </div>
+                             <p className="text-sm font-medium text-muted-foreground">
+                                No specific videos identified for this breed yet.
+                             </p>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }

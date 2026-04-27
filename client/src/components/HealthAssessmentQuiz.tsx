@@ -301,131 +301,192 @@ export function HealthAssessmentQuiz({ pet }: HealthAssessmentQuizProps) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full">
-          <ActivitySquare className="mr-2 h-4 w-4" />
-          Start Health Assessment
+        <Button 
+          variant="outline" 
+          className="w-full h-14 rounded-2xl border-black/[0.08] hover:border-[#ff6b4a]/40 hover:bg-[#ff6b4a]/5 group transition-all"
+        >
+          <ActivitySquare className="mr-3 h-5 w-5 text-[#ff6b4a] group-hover:scale-110 transition-transform" />
+          <span className="font-black tracking-tight">Initiate Health Diagnostic</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>
-            {showResults ? "Assessment Results" : `Health Assessment (${currentQuestion + 1}/${questions.length})`}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="mt-4">
-          {!showResults ? (
-            <div className="space-y-4">
-              <p className="text-lg font-medium mb-4">{questions[currentQuestion].text}</p>
-              
-              {questions[currentQuestion].type === "radio" && (
-                <RadioGroup
-                  value={answers[questions[currentQuestion].id] as string}
-                  onValueChange={handleAnswer}
-                >
-                  <div className="space-y-2">
-                    {questions[currentQuestion].options?.map((option) => (
-                      <div key={option.value} className="flex items-center space-x-2">
-                        <RadioGroupItem value={option.value} id={option.value} data-testid={`radio-${option.value}`} />
-                        <Label htmlFor={option.value}>{option.label}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </RadioGroup>
-              )}
-              
-              {questions[currentQuestion].type === "checkbox" && (
-                <div className="space-y-2">
-                  {questions[currentQuestion].options?.map((option) => {
-                    const currentAnswers = Array.isArray(answers[questions[currentQuestion].id])
-                      ? answers[questions[currentQuestion].id] as string[]
-                      : [];
-                    const isChecked = currentAnswers.includes(option.value);
-                    
-                    return (
-                      <div key={option.value} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={option.value}
-                          checked={isChecked}
-                          onCheckedChange={(checked) => handleCheckboxAnswer(option.value, !!checked)}
-                          data-testid={`checkbox-${option.value}`}
-                        />
-                        <Label htmlFor={option.value}>{option.label}</Label>
-                      </div>
-                    );
-                  })}
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl flex flex-col">
+        <div className="bg-gradient-to-r from-[#ff6b4a] to-orange-400 h-1.5 shrink-0" />
+        <div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
+          <DialogHeader className="mb-8">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ff6b4a]">
+                {showResults ? "Diagnostic Output" : `Module ${currentQuestion + 1} of ${questions.length}`}
+              </div>
+              {!showResults && (
+                <div className="flex gap-1">
+                  {questions.map((_, i) => (
+                    <div key={i} className={`w-6 h-1 rounded-full transition-all ${i === currentQuestion ? 'bg-[#ff6b4a]' : i < currentQuestion ? 'bg-[#ff6b4a]/20' : 'bg-black/5'}`} />
+                  ))}
                 </div>
               )}
-              
-              {questions[currentQuestion].type === "textarea" && (
-                <div className="space-y-2">
-                  <Textarea
-                    placeholder="Please describe any additional concerns or symptoms you've noticed..."
-                    value={notes}
-                    onChange={(e) => handleNotesChange(e.target.value)}
-                    className="min-h-[100px]"
-                    data-testid="textarea-notes"
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    This field is optional and will be included in your assessment results for future reference.
-                  </p>
-                </div>
-              )}
-              
-              <Button
-                onClick={handleNext}
-                disabled={getIsNextDisabled()}
-                className="w-full mt-4"
-                data-testid="button-next"
-              >
-                {currentQuestion === questions.length - 1 ? "Show Results" : "Next Question"}
-              </Button>
             </div>
-          ) : results ? (
-            <div className="space-y-4">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="text-2xl font-bold text-primary" data-testid="health-score">
-                    {results.healthScore}%
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Health Score
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className={`h-5 w-5 ${getRiskLevelColor(results.riskLevel)}`} />
-                  <p className={`font-medium ${getRiskLevelColor(results.riskLevel)}`} data-testid="risk-level">
-                    {results.riskLevel.charAt(0).toUpperCase() + results.riskLevel.slice(1)} Risk Level
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <p className="font-medium">Recommendations:</p>
-                  <ul className="list-disc list-inside space-y-1" data-testid="recommendations">
-                    {results.recommendations.map((rec, index) => (
-                      <li key={index} className="text-muted-foreground">
-                        {rec}
-                      </li>
+            <DialogTitle className="text-2xl font-black tracking-tight">
+              {showResults ? "Health Assessment" : questions[currentQuestion].text}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="mt-4">
+            {!showResults ? (
+              <div className="space-y-6">
+                {questions[currentQuestion].type === "radio" && (
+                  <RadioGroup
+                    value={answers[questions[currentQuestion].id] as string}
+                    onValueChange={handleAnswer}
+                    className="grid gap-3"
+                  >
+                    {questions[currentQuestion].options?.map((option) => (
+                      <div key={option.value}>
+                        <RadioGroupItem value={option.value} id={option.value} className="sr-only" />
+                        <Label
+                          htmlFor={option.value}
+                          className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                            answers[questions[currentQuestion].id] === option.value
+                              ? 'border-[#ff6b4a] bg-[#ff6b4a]/5 shadow-sm'
+                              : 'border-black/[0.04] hover:border-black/[0.1] bg-white'
+                          }`}
+                        >
+                          <span className="font-bold text-sm">{option.label}</span>
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                            answers[questions[currentQuestion].id] === option.value
+                              ? 'border-[#ff6b4a] bg-[#ff6b4a]'
+                              : 'border-black/10'
+                          }`}>
+                            {answers[questions[currentQuestion].id] === option.value && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </div>
+                        </Label>
+                      </div>
                     ))}
-                  </ul>
+                  </RadioGroup>
+                )}
+                
+                {questions[currentQuestion].type === "checkbox" && (
+                  <div className="grid gap-3">
+                    {questions[currentQuestion].options?.map((option) => {
+                      const currentAnswers = Array.isArray(answers[questions[currentQuestion].id])
+                        ? answers[questions[currentQuestion].id] as string[]
+                        : [];
+                      const isChecked = currentAnswers.includes(option.value);
+                      
+                      return (
+                        <div key={option.value}>
+                          <Checkbox
+                            id={option.value}
+                            checked={isChecked}
+                            onCheckedChange={(checked) => handleCheckboxAnswer(option.value, !!checked)}
+                            className="sr-only"
+                          />
+                          <Label
+                            htmlFor={option.value}
+                            className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                              isChecked
+                                ? 'border-[#ff6b4a] bg-[#ff6b4a]/5 shadow-sm'
+                                : 'border-black/[0.04] hover:border-black/[0.1] bg-white'
+                            }`}
+                          >
+                            <span className="font-bold text-sm">{option.label}</span>
+                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                              isChecked
+                                ? 'border-[#ff6b4a] bg-[#ff6b4a]'
+                                : 'border-black/10'
+                            }`}>
+                              {isChecked && <div className="w-2 h-2 bg-white rounded-[2px]" />}
+                            </div>
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {questions[currentQuestion].type === "textarea" && (
+                  <div className="space-y-4">
+                    <Textarea
+                      placeholder="Describe additional nuances here..."
+                      value={notes}
+                      onChange={(e) => handleNotesChange(e.target.value)}
+                      className="min-h-[150px] rounded-2xl border-black/[0.08] focus-visible:ring-[#ff6b4a] transition-all p-4 font-medium"
+                    />
+                    <div className="p-4 rounded-2xl bg-muted/50 border border-black/[0.02]">
+                       <p className="text-[10px] font-black uppercase text-muted-foreground leading-relaxed">
+                          Clinical Note: This data will be ingested for longitudinal tracking.
+                       </p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex gap-4 pt-4">
+                  {currentQuestion > 0 && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setCurrentQuestion((prev) => prev - 1)}
+                      className="flex-1 h-12 rounded-xl font-black text-xs uppercase tracking-widest"
+                    >
+                      Back
+                    </Button>
+                  )}
+                  <Button
+                    onClick={handleNext}
+                    disabled={getIsNextDisabled()}
+                    className="flex-[2] h-12 rounded-xl bg-black hover:bg-black/90 font-black text-xs uppercase tracking-widest text-white transition-all shadow-lg"
+                  >
+                    {currentQuestion === questions.length - 1 ? "Extract Intelligence" : "Next Module"}
+                  </Button>
+                </div>
+              </div>
+            ) : results ? (
+              <div className="space-y-8 animate-in fade-in zoom-in duration-500">
+                <div className="flex items-center justify-between p-6 rounded-3xl bg-black text-white shadow-xl">
+                   <div>
+                      <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Vitality Score</div>
+                      <div className="text-4xl font-black">{results.healthScore}%</div>
+                   </div>
+                   <div className="flex flex-col items-end">
+                      <div className={`p-2 rounded-xl bg-white/10 flex items-center gap-2 mb-2`}>
+                        <AlertTriangle className={`h-4 w-4 ${getRiskLevelColor(results.riskLevel)}`} />
+                         <span className="text-[10px] font-black uppercase tracking-widest">{results.riskLevel} Track</span>
+                      </div>
+                      <div className="text-[9px] font-bold opacity-40 uppercase tracking-tighter">Status: Calculated</div>
+                   </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ff6b4a]">Recommended Protocols</h5>
+                  <div className="grid gap-2">
+                    {results.recommendations.map((rec, index) => (
+                      <div key={index} className="flex items-center gap-3 p-4 rounded-2xl bg-black/[0.02] border border-black/[0.04]">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#ff6b4a]" />
+                        <span className="text-xs font-bold leading-tight">{rec}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 
                 {results.notes && results.notes.trim() && (
-                  <div className="space-y-2">
-                    <p className="font-medium">Additional Notes:</p>
-                    <div className="bg-muted p-3 rounded-md" data-testid="additional-notes">
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                        {results.notes}
+                  <div className="space-y-4">
+                    <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ff6b4a]">Patient Disclosures</h5>
+                    <div className="p-4 rounded-2xl bg-muted/30 border border-black/[0.02]">
+                      <p className="text-xs font-medium text-muted-foreground whitespace-pre-wrap italic">
+                        "{results.notes}"
                       </p>
                     </div>
                   </div>
                 )}
+
+                <Button 
+                    onClick={handleReset} 
+                    className="w-full h-12 rounded-xl border border-black/[0.1] hover:bg-black hover:text-white transition-all font-black text-xs uppercase tracking-widest"
+                    variant="outline"
+                >
+                  Regenerate Assessment
+                </Button>
               </div>
-              <Button onClick={handleReset} className="w-full">
-                Start New Assessment
-              </Button>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

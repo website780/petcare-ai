@@ -229,12 +229,12 @@ export default function PetProfile() {
       href: `/pet/${id}/vaccinations`,
       description: "Track vaccinations, schedules, and immunization history"
     },
-    {
-      title: "Vet Assessment",
-      icon: Stethoscope,
-      href: `/pet/${id}/vet`,
-      description: "Track veterinary care and health records"
-    },
+    // {
+    //   title: "Vet Assessment",
+    //   icon: Stethoscope,
+    //   href: `/pet/${id}/vet`,
+    //   description: "Track veterinary care and health records"
+    // },
     {
       title: "Grooming Guide",
       icon: Scissors,
@@ -255,15 +255,15 @@ export default function PetProfile() {
   return (
     <>
       <Header />
-      <div className="container mx-auto px-4 py-4 md:py-8 max-w-3xl">
+      <div className="container mx-auto px-4 pt-1 pb-4 md:py-4 max-w-3xl">
         <Link href="/">
-          <Button variant="ghost" className="mb-4 w-full sm:w-auto">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+          <Button variant="ghost" className="mb-4 w-full sm:w-auto hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a] transition-all group rounded-2xl">
+            <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
             Back to Home
           </Button>
         </Link>
 
-        <Card className="mb-6">
+        <Card className="mb-4 border border-black/[0.04] shadow-[0_4px_24px_rgba(0,0,0,0.04)] rounded-3xl overflow-hidden">
           <CardHeader className="p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -315,7 +315,7 @@ export default function PetProfile() {
             <div className="space-y-6">
 
               {/* ── Pet photo section ── */}
-              <div className="mb-6">
+              <div className="mb-4">
                 {displayImage ? (
                   /* ── Has image: show it + change-photo controls ── */
                   <div className="space-y-3">
@@ -576,23 +576,24 @@ export default function PetProfile() {
                 ownerContact={user?.email || "Not available"}
               />
 
-              <div className="mt-8">
+              <div className="mt-4">
                 <h3 className="text-lg font-semibold mb-4">Care Management</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {sections.map((section) => (
                     <Link key={section.title} href={section.href}>
-                      <Button
-                        variant="outline"
-                        className="w-full h-auto p-6 flex flex-col items-center gap-3 whitespace-normal"
+                      <div
+                        className="w-full h-auto p-6 flex flex-col items-center gap-3 whitespace-normal rounded-2xl border border-black/[0.04] bg-white hover:shadow-lg hover:-translate-y-1 hover:border-[#ff6b4a]/20 transition-all duration-300 cursor-pointer group"
                       >
-                        <section.icon className="h-8 w-8" />
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#ff6b4a]/10 to-[#ff8f6b]/10 flex items-center justify-center group-hover:from-[#ff6b4a] group-hover:to-[#ff8f6b] transition-all duration-300">
+                          <section.icon className="h-7 w-7 text-[#ff6b4a] group-hover:text-white transition-colors duration-300" />
+                        </div>
                         <div className="text-center">
-                          <h3 className="font-semibold text-lg">{section.title}</h3>
-                          <p className="text-muted-foreground text-sm mt-1">
+                          <h3 className="font-bold text-base">{section.title}</h3>
+                          <p className="text-muted-foreground text-sm mt-1 leading-relaxed">
                             {section.description}
                           </p>
                         </div>
-                      </Button>
+                      </div>
                     </Link>
                   ))}
                 </div>

@@ -363,420 +363,382 @@ export function VetConsultation({ pet }: VetConsultationProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-2xl font-semibold">Vet Consultations</h3>
+    <div className="space-y-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+         <div>
+            <h3 className="text-2xl font-black tracking-tight text-foreground">Clinical Appointments</h3>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Manage physical consultations</p>
+         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>Schedule Consultation</Button>
+            <Button className="bg-[#ff6b4a] hover:bg-[#ff8f6b] text-white font-black rounded-2xl h-12 px-6 shadow-lg shadow-[#ff6b4a]/20 border-none transition-all">
+               Schedule Consultation
+            </Button>
           </DialogTrigger>
-          <DialogContent className="p-4 md:p-6 w-[95vw] max-w-[850px]">
-            <DialogHeader>
-              <DialogTitle>Schedule a Vet Consultation</DialogTitle>
-              <DialogDescription>
-                Schedule a veterinary consultation for {pet.name} and find a vet near you
-              </DialogDescription>
-            </DialogHeader>
-            
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="details">Appointment Details</TabsTrigger>
-                <TabsTrigger value="vet">Find a Veterinarian</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="details" className="space-y-4 mt-4">
-                {selectedVet && (
-                  <Card className="bg-primary/5 border-primary/20">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        Selected Veterinarian
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pb-3">
-                      <div className="text-sm font-medium">{selectedVet.name}</div>
-                      <div className="text-sm text-muted-foreground">{selectedVet.address}</div>
-                      {selectedVet.phone && (
-                        <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                          <Phone className="h-3 w-3" /> {selectedVet.phone}
-                        </div>
-                      )}
-                    </CardContent>
-                    <CardFooter className="pt-0">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-xs h-7" 
-                        onClick={() => setActiveTab("vet")}
-                      >
-                        Change Veterinarian
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                )}
-                
-                <Form {...form}>
-                  <form
-                    onSubmit={form.handleSubmit((data) => scheduleConsultation.mutate(data))}
-                    className="space-y-4"
-                  >
-                    <FormField
-                      control={form.control}
-                      name="scheduledDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Date</FormLabel>
-                          <FormControl>
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              className="rounded-md border"
-                              disabled={(date) => date < new Date()}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="time"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Time</FormLabel>
-                          <FormControl>
-                            <div className="flex items-center">
-                              <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                              <Input type="time" {...field} className="w-full" />
-                            </div>
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="reason"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Reason for Visit</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              {...field}
-                              placeholder="Describe the reason for the consultation"
-                              className="resize-none"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <div className="flex justify-end pt-4">
-                      <Button
-                        type="submit"
-                        disabled={scheduleConsultation.isPending}
-                      >
-                        {scheduleConsultation.isPending
-                          ? "Scheduling..."
-                          : "Schedule Consultation"}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </TabsContent>
-              
-              <TabsContent value="vet" className="space-y-4 mt-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Find a Veterinarian</CardTitle>
-                    <CardDescription>
-                      Search for veterinarians in your area to schedule a consultation for {pet.species}. 
-                      You can search by city, full address, or ZIP code.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <Input
-                          placeholder="City, ZIP code, or full address"
-                          value={searchLocation}
-                          onChange={(e) => setSearchLocation(e.target.value)}
-                          className="w-full"
-                        />
-                        <div className="text-xs text-muted-foreground mt-1">
-                          For best results with ZIP codes, include complete 5-digit code
-                        </div>
-                      </div>
-                      <Button 
-                        onClick={searchVets} 
-                        disabled={isSearching || !searchLocation}
-                        className="gap-2"
-                      >
-                        {isSearching ? (
-                          <>Searching...</>
-                        ) : (
-                          <>
-                            <Search className="h-4 w-4" />
-                            Search
-                          </>
-                        )}
-                      </Button>
-                    </div>
+          <DialogContent className="p-0 border-none w-[95vw] max-w-[850px] max-h-[90vh] overflow-hidden rounded-[2.5rem] shadow-2xl">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 h-2" />
+            <div className="p-0 overflow-y-auto max-h-[calc(90vh-8px)]">
+                <div className="p-8 md:p-10 pb-4">
+                  <DialogHeader>
+                    <DialogTitle className="text-3xl font-black tracking-tight">Veternary Scheduler</DialogTitle>
+                    <DialogDescription className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest mt-2">
+                       Secure a professional clinical slot for {pet.name}
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
+                    <TabsList className="grid w-full grid-cols-2 p-1 bg-muted/40 rounded-2xl h-14 border border-black/[0.04]">
+                      <TabsTrigger value="details" className="rounded-xl font-black text-xs uppercase tracking-widest data-[state=active]:shadow-md data-[state=active]:bg-white">
+                         1. Appointment
+                      </TabsTrigger>
+                      <TabsTrigger value="vet" className="rounded-xl font-black text-xs uppercase tracking-widest data-[state=active]:shadow-md data-[state=active]:bg-white">
+                         2. Find Clinician
+                      </TabsTrigger>
+                    </TabsList>
                     
-                    <div className="mt-4">
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Search will open Google Maps in a new tab. Select a veterinarian below or manually enter details.
-                      </p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        <Badge variant="outline" className="cursor-pointer hover:bg-accent" onClick={() => setSearchLocation("78641")}>ZIP: 78641</Badge>
-                        <Badge variant="outline" className="cursor-pointer hover:bg-accent" onClick={() => setSearchLocation("Austin, TX")}>Austin, TX</Badge>
-                        <Badge variant="outline" className="cursor-pointer hover:bg-accent" onClick={() => setSearchLocation("60564")}>ZIP: 60564</Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                {searchResults.length > 0 && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium">
-                        Search Results
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        {searchLocation.match(/^\d{5}(-\d{4})?$/) && (
-                          <Badge variant="outline" className="bg-primary/10">ZIP Code Search</Badge>
-                        )}
-                        <Badge variant="outline">{searchResults.length} found</Badge>
-                      </div>
-                    </div>
-                    
-                    <div className="flex justify-end mb-2">
-                      <div className="max-w-[250px]">
-                        <Select value={sortBy} onValueChange={(value) => {
-                          setSortBy(value as "rating" | "distance" | "default");
-                          processSearchResults(searchResults);
-                        }}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Sort results" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="default">Default (Distance)</SelectItem>
-                            <SelectItem value="rating">Sort by Rating</SelectItem>
-                            <SelectItem value="distance">Sort by Distance</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    
-                    {displayedResults.map((vet) => (
-                      <Card 
-                        key={vet.placeId}
-                        className="cursor-pointer hover:bg-accent/50 transition-colors overflow-hidden"
-                        onClick={() => selectVet(vet)}
-                      >
-                        <div className="flex">
-                          {vet.photos && vet.photos.length > 0 && (
-                            <div className="w-1/4 min-w-[100px] relative hidden md:block">
-                              <div 
-                                className="absolute inset-0 bg-center bg-cover" 
-                                style={{ backgroundImage: `url(${vet.photos[0].url})` }}
-                              />
+                    <div className="mt-8">
+                        <TabsContent value="details" className="space-y-8 outline-none animate-in fade-in slide-in-from-bottom-4 duration-500">
+                          {selectedVet && (
+                            <div className="p-6 rounded-3xl bg-blue-50/50 border border-blue-100 flex items-center justify-between group">
+                               <div className="flex items-center gap-4">
+                                  <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/20">
+                                     <MapPin className="w-6 h-6" />
+                                  </div>
+                                  <div>
+                                     <div className="text-[10px] font-black uppercase tracking-widest text-blue-600">Active Selection</div>
+                                     <h5 className="font-black text-base text-blue-900">{selectedVet.name}</h5>
+                                     <p className="text-[10px] font-medium text-blue-700/60 truncate max-w-[200px] md:max-w-md">{selectedVet.address}</p>
+                                  </div>
+                               </div>
+                               <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="rounded-xl h-10 px-4 font-black text-[10px] uppercase tracking-widest hover:bg-blue-100/50 text-blue-700" 
+                                  onClick={() => setActiveTab("vet")}
+                                >
+                                  Modify
+                                </Button>
                             </div>
                           )}
-                          <CardContent className="p-4 flex-1">
-                            <div className="flex justify-between items-start gap-4">
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <h4 className="font-medium text-base">{vet.name}</h4>
-                                  {vet.rating && (
-                                    <div className="flex items-center gap-1">
-                                      <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-                                      <span className="text-sm font-medium">{vet.rating}</span>
-                                      {vet.userRatingsTotal && (
-                                        <span className="text-xs text-muted-foreground">({vet.userRatingsTotal})</span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                                <p className="text-sm text-muted-foreground">{vet.address}</p>
-                                {vet.phone && (
-                                  <p className="text-sm flex items-center gap-1">
-                                    <Phone className="h-3 w-3" /> {vet.phone}
-                                  </p>
-                                )}
-                                {vet.website && (
-                                  <a 
-                                    href={vet.website} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-xs text-primary flex items-center gap-1 hover:underline"
-                                  >
-                                    <ExternalLink className="h-3 w-3" /> Website
-                                  </a>
-                                )}
+                          
+                          <Form {...form}>
+                            <form
+                              onSubmit={form.handleSubmit((data) => scheduleConsultation.mutate(data))}
+                              className="grid gap-8"
+                            >
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                  <FormField
+                                    control={form.control}
+                                    name="scheduledDate"
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-3">
+                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-[#ff6b4a]">Select Target Date</FormLabel>
+                                        <FormControl>
+                                          <div className="p-2 bg-white rounded-3xl border border-black/[0.06] shadow-sm">
+                                            <Calendar
+                                              mode="single"
+                                              selected={field.value}
+                                              onSelect={field.onChange}
+                                              className="rounded-2xl"
+                                              disabled={(date) => date < new Date()}
+                                            />
+                                          </div>
+                                        </FormControl>
+                                      </FormItem>
+                                    )}
+                                  />
+                                  <div className="space-y-8">
+                                      <FormField
+                                        control={form.control}
+                                        name="time"
+                                        render={({ field }) => (
+                                          <FormItem className="space-y-3">
+                                            <FormLabel className="text-[10px] font-black uppercase tracking-widest text-[#ff6b4a]">Preferred Slot</FormLabel>
+                                            <FormControl>
+                                              <div className="relative group">
+                                                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-[#ff6b4a] transition-colors" />
+                                                <Input type="time" {...field} className="h-14 pl-12 rounded-2xl border-black/[0.08] focus-visible:ring-[#ff6b4a] font-bold" />
+                                              </div>
+                                            </FormControl>
+                                          </FormItem>
+                                        )}
+                                      />
+                                      <FormField
+                                        control={form.control}
+                                        name="reason"
+                                        render={({ field }) => (
+                                          <FormItem className="space-y-3">
+                                            <FormLabel className="text-[10px] font-black uppercase tracking-widest text-[#ff6b4a]">Assessment Rationale</FormLabel>
+                                            <FormControl>
+                                              <Textarea
+                                                {...field}
+                                                placeholder="Clarify specific symptoms or concerns..."
+                                                className="min-h-[140px] rounded-[1.5rem] border-black/[0.08] focus-visible:ring-[#ff6b4a] p-4 font-medium resize-none"
+                                              />
+                                            </FormControl>
+                                          </FormItem>
+                                        )}
+                                      />
+                                  </div>
                               </div>
+                              <div className="flex justify-end p-6 md:p-8 bg-muted/20 border-t border-black/[0.02] -mx-8 md:-mx-10 mt-4 rounded-b-[2.5rem]">
+                                <Button
+                                  type="submit"
+                                  disabled={scheduleConsultation.isPending}
+                                  className="bg-black hover:bg-black/90 text-white h-14 px-10 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-black/10 transition-all border-none"
+                                >
+                                  {scheduleConsultation.isPending
+                                    ? "Processing..."
+                                    : "Authorize Appointment"}
+                                </Button>
+                              </div>
+                            </form>
+                          </Form>
+                        </TabsContent>
+                        
+                        <TabsContent value="vet" className="space-y-8 outline-none animate-in fade-in slide-in-from-bottom-4 duration-500">
+                          <div className="bg-black text-white rounded-[2rem] p-8 md:p-10 relative overflow-hidden group shadow-2xl">
+                             <div className="relative z-10">
+                                <h4 className="text-xl font-black mb-1 uppercase tracking-tight">Geospatial Search</h4>
+                                <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-8">Locate premier clinical centers</p>
+                                
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                  <div className="relative flex-1 group">
+                                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30 group-focus-within:text-[#ff6b4a] transition-all" />
+                                    <Input
+                                      placeholder="City, ZIP, or Full Address"
+                                      value={searchLocation}
+                                      onChange={(e) => setSearchLocation(e.target.value)}
+                                      className="h-14 pl-12 rounded-2xl bg-white/10 border-white/10 text-white placeholder:text-white/20 focus-visible:ring-[#ff6b4a] transition-all"
+                                    />
+                                  </div>
+                                  <Button 
+                                    onClick={searchVets} 
+                                    disabled={isSearching || !searchLocation}
+                                    className="h-14 px-8 rounded-2xl bg-[#ff6b4a] hover:bg-[#ff8f6b] text-white font-black text-xs uppercase tracking-[0.1em] shadow-lg shadow-[#ff6b4a]/20 border-none transition-all group"
+                                  >
+                                    {isSearching ? (
+                                      <div className="flex items-center gap-2">
+                                         <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                                         Scanning...
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2">
+                                        <Search className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                                        Execute Search
+                                      </div>
+                                    )}
+                                  </Button>
+                                </div>
+                                
+                                <div className="mt-6 flex flex-wrap items-center gap-2">
+                                  <span className="text-[9px] font-black uppercase text-white/30 tracking-widest mr-2">Hotspots:</span>
+                                  {["78641", "Austin, TX", "60564"].map(spot => (
+                                    <button 
+                                      key={spot}
+                                      onClick={() => setSearchLocation(spot)}
+                                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] font-black text-white/60 hover:bg-white/10 hover:text-white transition-all uppercase tracking-tighter"
+                                    >
+                                      {spot}
+                                    </button>
+                                  ))}
+                                </div>
+                             </div>
+                             <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-blue-600/10 blur-[80px] rounded-full group-hover:bg-blue-600/20 transition-all duration-1000" />
+                          </div>
+                          
+                          {searchResults.length > 0 ? (
+                            <div className="space-y-8 pb-10">
+                              <div className="flex items-center justify-between px-2">
+                                <div className="flex items-center gap-3">
+                                   <div className="w-2 h-2 rounded-full bg-[#ff6b4a]" />
+                                   <h3 className="text-sm font-black uppercase tracking-widest">Found {searchResults.length} Institutions</h3>
+                                </div>
+                                <div className="w-48">
+                                  <Select value={sortBy} onValueChange={(value) => {
+                                    setSortBy(value as "rating" | "distance" | "default");
+                                    processSearchResults(searchResults);
+                                  }}>
+                                    <SelectTrigger className="h-10 rounded-xl border-black/[0.06] bg-black/[0.01] font-black text-[10px] uppercase tracking-widest">
+                                      <SelectValue placeholder="Sort Results" />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl border-none shadow-2xl">
+                                      <SelectItem value="default" className="text-xs font-bold font-black">Proximity First</SelectItem>
+                                      <SelectItem value="rating" className="text-xs font-bold font-black">Top Rated</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {displayedResults.map((vet) => (
+                                  <div 
+                                    key={vet.placeId}
+                                    onClick={() => selectVet(vet)}
+                                    className="group relative bg-white border border-black/[0.04] p-5 rounded-[2rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden"
+                                  >
+                                    <div className="flex flex-col gap-4">
+                                      <div className="flex items-start justify-between">
+                                          <div className={`p-4 rounded-2xl bg-black/[0.02] group-hover:bg-[#ff6b4a]/10 group-hover:text-[#ff6b4a] transition-all duration-300`}>
+                                             <MapPin className="h-6 w-6" />
+                                          </div>
+                                          {vet.rating ? (
+                                             <div className="flex items-center gap-1.5 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100 shadow-sm">
+                                                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                                                <span className="text-xs font-black text-amber-700">{vet.rating}</span>
+                                             </div>
+                                          ) : null}
+                                      </div>
+                                      <div className="space-y-1">
+                                        <h4 className="font-black text-lg text-gray-900 group-hover:text-[#ff6b4a] transition-colors leading-tight line-clamp-1">{vet.name}</h4>
+                                        <p className="text-[11px] font-bold text-muted-foreground leading-relaxed line-clamp-2">{vet.address}</p>
+                                      </div>
+                                      <div className="flex items-center justify-between pt-2 border-t border-black/[0.02]">
+                                          <span className="text-[10px] font-black uppercase text-[#ff6b4a] tracking-widest opacity-0 group-hover:opacity-100 transition-all">Select Profile</span>
+                                          <div className="flex items-center gap-3">
+                                            {vet.phone && <Phone className="h-3 w-3 text-muted-foreground" title={vet.phone} />}
+                                            {vet.website && <ExternalLink className="h-3 w-3 text-muted-foreground" title="Website Available" />}
+                                          </div>
+                                      </div>
+                                    </div>
+                                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-[#ff6b4a]/5 to-transparent rounded-bl-[100%] pointer-events-none" />
+                                  </div>
+                                ))}
+                              </div>
+                              
+                              {searchResults.length > displayedResults.length && (
+                                <div className="text-center mt-6">
+                                  <Button 
+                                    variant="outline" 
+                                    onClick={loadMoreResults} 
+                                    className="h-12 px-8 rounded-xl font-black text-xs uppercase tracking-widest border-black/[0.1] hover:bg-black hover:text-white transition-all shadow-md"
+                                  >
+                                    Load Remaining ({searchResults.length - displayedResults.length})
+                                  </Button>
+                                </div>
+                              )}
                             </div>
-                          </CardContent>
-                        </div>
-                      </Card>
-                    ))}
-                    
-                    {/* Load More button */}
-                    {searchResults.length > displayedResults.length && (
-                      <div className="text-center mt-4">
-                        <Button 
-                          variant="outline" 
-                          onClick={loadMoreResults} 
-                          className="w-full sm:w-auto"
-                        >
-                          Load More Results ({displayedResults.length} of {searchResults.length})
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {/* No results case (shouldn't happen with sorting only) */}
-                    {searchResults.length > 0 && displayedResults.length === 0 && (
-                      <div className="text-center py-8 bg-muted/20 rounded-lg border">
-                        <p className="text-muted-foreground">No results to display.</p>
-                        <Button 
-                          variant="link" 
-                          onClick={() => {
-                            setSortBy("default");
-                            processSearchResults(searchResults);
-                          }}
-                          className="mt-2"
-                        >
-                          Reset Sorting
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Enter Veterinarian Details Manually</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Vet Name</label>
-                      <Input 
-                        placeholder="Enter veterinarian name"
-                        value={selectedVet?.name || ""}
-                        onChange={(e) => {
-                          const name = e.target.value;
-                          setSelectedVet(prev => prev ? {...prev, name} : {
-                            placeId: "manual",
-                            name,
-                            address: "",
-                          });
-                        }}
-                      />
+                          ) : (
+                            <div className="p-10 rounded-[2.5rem] bg-black/[0.01] border-2 border-dashed border-black/[0.05] text-center space-y-10">
+                               <div className="space-y-4">
+                                  <h4 className="text-lg font-black tracking-tight">Manual Disclosure</h4>
+                                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest max-w-[280px] mx-auto">Input institutional data if catalog search fails</p>
+                               </div>
+                               <div className="grid gap-4 max-w-md mx-auto">
+                                  <Input 
+                                    placeholder="Institution Full Name"
+                                    value={selectedVet?.name || ""}
+                                    onChange={(e) => {
+                                      const name = e.target.value;
+                                      setSelectedVet(prev => prev ? {...prev, name} : { placeId: "manual", name, address: "" });
+                                    }}
+                                    className="h-12 rounded-xl border-black/[0.08] focus-visible:ring-[#ff6b4a] font-bold"
+                                  />
+                                  <Input 
+                                    placeholder="Institutional Address"
+                                    value={selectedVet?.address || ""}
+                                    onChange={(e) => {
+                                      const address = e.target.value;
+                                      setSelectedVet(prev => prev ? {...prev, address} : { placeId: "manual", name: "", address });
+                                    }}
+                                    className="h-12 rounded-xl border-black/[0.08] focus-visible:ring-[#ff6b4a] font-bold"
+                                  />
+                                  <Button 
+                                    onClick={() => setActiveTab("details")}
+                                    className="h-12 rounded-xl bg-black text-white font-black text-xs uppercase tracking-widest shadow-lg border-none"
+                                    disabled={!selectedVet?.name}
+                                  >
+                                    Initialize Appointment
+                                  </Button>
+                               </div>
+                            </div>
+                          )}
+                        </TabsContent>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Address</label>
-                      <Input 
-                        placeholder="Enter address"
-                        value={selectedVet?.address || ""}
-                        onChange={(e) => {
-                          const address = e.target.value;
-                          setSelectedVet(prev => prev ? {...prev, address} : {
-                            placeId: "manual",
-                            name: "",
-                            address,
-                          });
-                        }}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Phone</label>
-                      <Input 
-                        placeholder="Enter phone number"
-                        value={selectedVet?.phone || ""}
-                        onChange={(e) => {
-                          const phone = e.target.value;
-                          setSelectedVet(prev => prev ? {...prev, phone} : {
-                            placeId: "manual",
-                            name: "",
-                            address: "",
-                            phone,
-                          });
-                        }}
-                      />
-                    </div>
-                    <div className="pt-2">
-                      <Button 
-                        onClick={() => setActiveTab("details")}
-                        className="w-full"
-                        disabled={!selectedVet?.name}
-                      >
-                        Continue to Appointment Details
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+                  </Tabs>
+                </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      {consultations.length > 0 ? (
-        <div className="space-y-4">
-          {consultations.map((consultation) => {
-            const { dateTime } = formatDateTime(consultation.scheduledDate);
-            return (
-              <div
-                key={consultation.id}
-                className="border rounded-lg p-4 space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">
-                      {dateTime}
-                    </span>
+      <div className="space-y-4">
+        {consultations.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {consultations.map((consultation) => {
+              const { dateTime } = formatDateTime(consultation.scheduledDate);
+              const isCancelled = consultation.status === "cancelled";
+              const isCompleted = consultation.status === "completed";
+
+              return (
+                <div
+                  key={consultation.id}
+                  className={`group relative overflow-hidden p-6 rounded-[2rem] border transition-all duration-500 ${isCancelled ? 'bg-muted/50 border-black/5 opacity-60' : 'bg-white border-black/[0.04] shadow-sm hover:shadow-xl'}`}
+                >
+                  <div className="relative z-10 space-y-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 ${isCancelled ? 'bg-muted text-muted-foreground' : isCompleted ? 'bg-green-500 text-white shadow-green-500/20' : 'bg-[#ff6b4a] text-white shadow-[#ff6b4a]/20'}`}>
+                           <CalendarIcon className="h-5 w-5" />
+                        </div>
+                        <div>
+                           <div className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Protocol Slot</div>
+                           <span className="text-sm font-black tracking-tight">{dateTime}</span>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className={`rounded-xl h-8 px-4 font-black uppercase tracking-[0.1em] text-[9px] border-none shadow-sm ${isCancelled ? 'bg-red-50 text-red-600' : isCompleted ? 'bg-green-50 text-green-600' : 'bg-[#ff6b4a]/10 text-[#ff6b4a]'}`}>
+                        {consultation.status}
+                      </Badge>
+                    </div>
+
+                    {consultation.reason && (
+                      <div className="p-4 rounded-[1.5rem] bg-black/[0.02] border border-black/[0.01]">
+                         <p className="text-xs font-bold text-gray-700 leading-relaxed italic line-clamp-3">"{consultation.reason}"</p>
+                      </div>
+                    )}
+
+                    {consultation.vetName && (
+                      <div className="space-y-1">
+                         <div className="text-[9px] font-black text-muted-foreground uppercase flex items-center gap-1"><MapPin className="w-3 h-3" /> Location Identifier</div>
+                         <div className="text-[11px] font-black text-gray-900">{consultation.vetName}</div>
+                         <p className="text-[10px] font-medium text-muted-foreground truncate">{consultation.vetAddress}</p>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-2">
+                       {consultation.status === "scheduled" && (
+                        <button
+                          onClick={() => cancelConsultation.mutate(consultation.id)}
+                          className="text-[10px] font-black text-red-500 uppercase tracking-widest hover:text-red-700 transition-colors flex items-center gap-1.5"
+                        >
+                          <X className="h-3 w-3" /> Deauthorize Appointment
+                        </button>
+                      )}
+                      
+                      {isCompleted && consultation.vetNotes && (
+                        <div className="flex items-center gap-2">
+                           <div className="w-4 h-4 rounded-md bg-green-100 flex items-center justify-center">
+                              <Star className="w-2.5 h-2.5 text-green-600 fill-green-600" />
+                           </div>
+                           <span className="text-[9px] font-black uppercase tracking-widest text-green-700">Digital Notes Attached</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {consultation.status === "scheduled" && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => cancelConsultation.mutate(consultation.id)}
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      Cancel
-                    </Button>
-                  )}
+                  <div className={`absolute top-0 right-0 w-24 h-24 blur-[60px] rounded-full -mr-10 -mt-10 opacity-20 pointer-events-none transition-colors ${isCancelled ? 'bg-red-500' : isCompleted ? 'bg-green-500' : 'bg-[#ff6b4a]'}`} />
                 </div>
-                {consultation.reason && (
-                  <p className="text-muted-foreground">{consultation.reason}</p>
-                )}
-                <p className="text-sm font-medium">
-                  Status:{" "}
-                  <span
-                    className={`capitalize ${
-                      consultation.status === "cancelled"
-                        ? "text-destructive"
-                        : consultation.status === "completed"
-                        ? "text-green-600"
-                        : "text-blue-600"
-                    }`}
-                  >
-                    {consultation.status}
-                  </span>
-                </p>
-                {consultation.vetNotes && (
-                  <div className="mt-2">
-                    <p className="font-medium">Vet Notes:</p>
-                    <p className="text-muted-foreground">{consultation.vetNotes}</p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="text-muted-foreground">No consultations scheduled.</p>
-      )}
+              );
+            })}
+          </div>
+        ) : (
+          <div className="py-6 text-center bg-black/[0.02] backdrop-blur-xl rounded-[2.5rem] border border-black/[0.05] border-dashed">
+             <div className="w-16 h-16 rounded-[2rem] bg-black/[0.02] flex items-center justify-center mx-auto mb-4 shadow-sm border border-black/[0.05]">
+                <CalendarIcon className="w-6 h-6 text-muted-foreground/40" />
+             </div>
+             <p className="text-xs font-black text-muted-foreground/60 uppercase tracking-widest">No active clinical logs found.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

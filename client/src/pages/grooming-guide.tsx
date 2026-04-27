@@ -32,23 +32,25 @@ export default function GroomingGuidePage() {
   return (
     <>
       <Header />
-      <div className="container mx-auto px-4 py-4 md:py-8 max-w-3xl">
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <Link href={`/pet/${id}`}>
-            <Button variant="ghost" className="w-full sm:w-auto">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Profile
-            </Button>
-          </Link>
-        </div>
+      <div className="container mx-auto px-4 py-4 max-w-4xl relative z-10">
+        <Link href={`/pet/${id}`}>
+          <Button 
+            variant="ghost" 
+            className="mb-6 hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a] transition-all group rounded-2xl"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+            Back to Profile
+          </Button>
+        </Link>
 
-        <Card>
-          <CardHeader className="p-4 md:p-6">
-            <CardTitle className="text-2xl md:text-3xl">{pet.name}'s Grooming Guide</CardTitle>
+        <Card className="border border-black/[0.04] shadow-[0_4px_24px_rgba(0,0,0,0.04)] rounded-3xl overflow-hidden bg-white/80 backdrop-blur-xl">
+          <div className="h-2 bg-gradient-to-r from-blue-400 to-cyan-400" />
+          <CardHeader className="p-6 md:p-8">
+            <CardTitle className="text-3xl font-black tracking-tight">{pet.name}'s Grooming Guide</CardTitle>
           </CardHeader>
-          <CardContent className="p-4 md:p-6 space-y-6">
+          <CardContent className="p-6 md:p-8 space-y-6">
             <GroomingTips pet={pet} />
-            <div className="mt-6">
+            <div className="pt-6 border-t border-black/[0.04]">
               <GroomingScheduler pet={pet} />
             </div>
           </CardContent>

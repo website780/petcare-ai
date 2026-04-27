@@ -106,7 +106,12 @@ export function registerRoutes(app: Express): Server {
       });
     } catch (error) {
       console.error("[RESET] Error:", error);
-      res.status(500).json({ error: "Failed to reset account", details: error instanceof Error ? error.message : String(error) });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ 
+        error: "Failed to reset account", 
+        details: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined 
+      });
     }
   });
 
@@ -1034,7 +1039,7 @@ Pet Owner: ${message}`
   // New endpoint for general vet chat
   app.post("/api/chat/vet", async (req, res) => {
     try {
-      const { message, petId, userId, petSpecies, petBreed, petInfo, chatHistory, category } = req.body;
+      const { message, petId, userId, petSpecies, petBreed, petInfo, chatHistory, category, injuryContext } = req.body;
       
       // Support both direct fields and nested petInfo object
       const species = petSpecies || petInfo?.species || "pet";
@@ -1068,6 +1073,20 @@ Pet Owner: ${message}`
             `${msg.role === 'user' ? 'Pet Owner' : 'Veterinary Assistant'}: ${msg.content}`
           ).join("\n")
         : "";
+
+      // Format injury context if present
+      let injuryAnalysisContext = "";
+      if (injuryContext) {
+        if (typeof injuryContext === 'string') {
+          injuryAnalysisContext = `\nRECENT INJURY SCAN FINDINGS:\n${injuryContext}\n`;
+        } else if (typeof injuryContext === 'object') {
+          injuryAnalysisContext = `\nRECENT INJURY SCAN FINDINGS:\n` +
+            `- Description: ${injuryContext.injuryDescription || 'N/A'}\n` +
+            `- Severity: ${injuryContext.severity || 'N/A'}\n` +
+            `- Recommended Immediate Actions: ${injuryContext.immediateActions?.join(', ') || 'N/A'}\n` +
+            `- Treatment Options: ${injuryContext.treatmentOptions?.map((o: any) => o.name).join(', ') || 'N/A'}\n`;
+        }
+      }
       
       // Create category-specific context
       let categoryContext = "";
@@ -1100,6 +1119,7 @@ Pet Owner: ${message}`
             role: "system",
              content: `You are a veterinary assistant providing guidance on pet health issues. You're answering questions about a ${species}${breed ? ` (${breed})` : ''}. 
             
+${injuryAnalysisContext}
 ${categoryContext}
 
 Focus on providing specific, actionable advice with real brand names and medicine names where appropriate. For example, instead of saying "use a flea treatment," recommend specific products like "Frontline Plus, Advantage II, or Seresto collars." For supplements, mention specific brands like "Cosequin, Dasuquin, or Nordic Naturals Omega-3 Pet." For medications, refer to common veterinary medicines by name when appropriate.
@@ -1352,7 +1372,9 @@ Pet Owner: ${message}`
           treatRecommendations: ["Species-appropriate healthy treats"],
           vaccinationRecords: [],
           vaccinationSchedule: `Regular vaccination schedule recommended for ${pet.species}. Consult your veterinarian for a personalized vaccination plan.`,
-          vaccinationNotes: `Standard vaccinations for ${pet.breed || pet.species} should be discussed with your veterinarian.`
+          vaccinationNotes: null,
+          nutritionAnalysis: null,
+          lastInjuryAnalysis: null,
         });
         res.status(201).json(updatedPet);
       }
@@ -2051,7 +2073,7 @@ Always respond in valid JSON format.`
             content: [
               {
                 type: "text",
-                text: "Describe this pet in detail for an artist: species, breed, coloring, markings, pose, expression, and any unique features. Be specific about physical characteristics. Keep it to 2-3 sentences."
+                text: "Perform a forensic physical analysis of this pet for a world-class portrait artist. Describe its species, breed, and most importantly, identifying landmarks: the unique pattern of its fur/spots, exact shape of the face and snout, distinct ear positioning, eye color, and any asymmetrical markings. Your description will be used to recreate this exact individual pet in an artistic style. Be extremely specific about identity markers. 2-3 detailed sentences."
               },
               {
                 type: "image_url",
@@ -2062,17 +2084,17 @@ Always respond in valid JSON format.`
             ],
           },
         ],
-        max_tokens: 300,
+        max_tokens: 400,
       });
 
       const petDescription = visionResponse.choices[0]?.message?.content || "a cute pet";
 
       const imageResponse = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `${stylePrompt}\n\nThe subject is: ${petDescription}\n\nIMPORTANT: Create a stylized artistic portrait, NOT a photograph. The portrait should be a single centered composition of just this pet with a complementary background.`,
+        prompt: `${stylePrompt}\n\nThe subject is: ${petDescription}\n\nIMPORTANT: Create a stylized artistic portrait that preserves the unique identity markers mentioned. It must be a single centered composition of just this pet with a complementary background. If the style is Anime, use a high-fidelity 'Seinen' anime aesthetic that respects the pet's actual bone structure and facial proportions.`,
         n: 1,
         size: "1024x1024",
-        quality: "standard",
+        quality: "hd",
       });
 
       const generatedImageUrl = imageResponse.data?.[0]?.url;

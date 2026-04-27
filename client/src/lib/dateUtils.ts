@@ -1,7 +1,9 @@
 import { format, parseISO } from "date-fns";
 
-export const formatDateTime = (dateStr: string | Date) => {
+export const formatDateTime = (dateStr: string | Date | null | undefined) => {
+  if (!dateStr) return { date: 'N/A', time: 'N/A', dateTime: 'N/A' };
   const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr;
+  if (isNaN(date.getTime())) return { date: 'Invalid Date', time: 'Invalid Time', dateTime: 'Invalid Date' };
   return {
     date: format(date, 'MMM d, yyyy'),
     time: format(date, 'h:mm a'),

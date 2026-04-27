@@ -27,8 +27,8 @@ export function Header() {
   if (!user) return null;
 
   return (
-    <div className="w-full relative z-50 bg-white/80 backdrop-blur-md border-b border-white/20 shadow-sm transition-all duration-300 left-0 top-0 sticky">
-      <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div className="w-full relative z-50 bg-white/90 backdrop-blur-md border-b border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-200 left-0 top-0 sticky">
+      <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <div className="flex items-center justify-between">
           
           <Link href="/">
@@ -37,12 +37,13 @@ export function Header() {
             </div>
           </Link>
 
+          {/* 
           <nav className="hidden lg:flex items-center gap-8 xl:gap-12 absolute left-1/2 -translate-x-1/2">
-             <Link href="/"><span className="text-sm font-semibold text-gray-800 hover:text-[#ff6b4a] transition-colors cursor-pointer">AI Scan</span></Link>
              <Link href="/vet"><span className="text-sm font-semibold text-gray-800 hover:text-[#ff6b4a] transition-colors cursor-pointer">AI Vet</span></Link>
              <Link href="/pet-portraits"><span className="text-sm font-semibold text-gray-800 hover:text-[#ff6b4a] transition-colors cursor-pointer">AI Portraits</span></Link>
              <Link href="/scan"><span className="text-sm font-semibold text-gray-800 hover:text-[#ff6b4a] transition-colors cursor-pointer">Injury Scanner</span></Link>
           </nav>
+          */}
 
           <div className="flex items-center gap-3 sm:gap-4 md:gap-6">
             <a 

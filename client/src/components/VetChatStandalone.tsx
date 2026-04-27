@@ -10,20 +10,84 @@ import { Label } from "@/components/ui/label";
 import { 
   Upload, Loader2, MessageSquare, Send, User, 
   ChevronRight, Sparkles, CheckCircle2, Lock, CreditCard,
-  PawPrint, Plus, RotateCcw, ArrowLeft
+  PawPrint, Plus, RotateCcw, ArrowLeft, Stethoscope, HeartPulse
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
+import { useLocation } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReactMarkdown from 'react-markdown';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Pet, insertPetSchema } from "@shared/schema";
+import { HealthAssessmentQuiz } from "@/components/HealthAssessmentQuiz";
+import { VetConsultation } from "@/components/VetConsultation";
 
 type ChatMessage = {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
 };
+
+interface VetChatCategory {
+  id: string;
+  name: string;
+  description: string;
+  examples: string[];
+}
+
+const issueCategories: VetChatCategory[] = [
+  {
+    id: "behaviour",
+    name: "Behavioral Issues",
+    description: "Ask about unusual behaviors, aggression, anxiety, or training concerns",
+    examples: [
+      "My pet is suddenly afraid of loud noises",
+      "Why is my pet hiding more than usual?",
+      "My pet is showing aggression toward other animals"
+    ]
+  },
+  {
+    id: "diet",
+    name: "Diet & Nutrition",
+    description: "Questions about food, diet changes, weight issues, or eating habits",
+    examples: [
+      "My pet has stopped eating their regular food",
+      "How much should I feed my pet?",
+      "Is my pet's weight healthy?"
+    ]
+  },
+  {
+    id: "symptom",
+    name: "General Symptoms",
+    description: "Discuss symptoms like lethargy, vomiting, digestive issues, or other health concerns",
+    examples: [
+      "My pet seems more tired than usual",
+      "My pet is drinking more water than normal",
+      "My pet has been vomiting"
+    ]
+  },
+  {
+    id: "preventcare",
+    name: "Preventive Care",
+    description: "Ask about vaccinations, parasite prevention, dental care, or routine check-ups",
+    examples: [
+      "When should my pet be vaccinated?",
+      "What flea and tick prevention is best?",
+      "How often should I brush my pet's teeth?"
+    ]
+  },
+  {
+    id: "senior",
+    name: "Senior Pet Care",
+    description: "Questions about aging pets, mobility issues, cognitive changes, or special needs",
+    examples: [
+      "My older pet is sleeping more than usual",
+      "My senior pet seems confused sometimes",
+      "My pet is having trouble climbing stairs"
+    ]
+  }
+];
 
 type Step = "pet_select" | "pet_details" | "chat";
 
@@ -55,6 +119,7 @@ async function compressImage(file: File, quality = 0.75): Promise<string> {
 export function VetChatStandalone() {
   const { user, refreshUser, loading } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   
   const [step, setStep] = useState<Step>("pet_select");
 
@@ -459,7 +524,15 @@ export function VetChatStandalone() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto space-y-4 pb-10 pt-2 md:pt-4">
+      <Button 
+        variant="ghost" 
+        onClick={() => setLocation("/")}
+        className="hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a] transition-all group rounded-2xl"
+      >
+        <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
+        Back to Dashboard
+      </Button>
       {step === "pet_select" && (
         <div className="space-y-6">
           {isLoadingPets ? (
@@ -467,7 +540,7 @@ export function VetChatStandalone() {
               <Loader2 className="w-8 h-8 animate-spin text-[#ff6b4a]" />
             </div>
           ) : pets && pets.length > 0 ? (
-            <Card className="border-2 border-dashed border-[#ff6b4a]/20">
+            <Card className="border border-black/[0.04] shadow-[0_4px_24px_rgba(0,0,0,0.04)] rounded-3xl overflow-hidden">
               <CardHeader className="text-center">
                 <PawPrint className="w-12 h-12 mx-auto mb-2 text-[#ff6b4a]" />
                 <CardTitle>Select Your Pet</CardTitle>
@@ -479,7 +552,7 @@ export function VetChatStandalone() {
                     <button
                       key={pet.id}
                       onClick={() => handleSelectExistingPet(pet)}
-                      className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-transparent hover:border-[#ff6b4a] hover:bg-[#ff6b4a]/5 transition-all group"
+                      className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-black/[0.04] hover:border-[#ff6b4a]/30 hover:bg-[#ff6b4a]/[0.03] hover:shadow-md transition-all duration-300 group"
                     >
                       {pet.imageUrl ? (
                         <img src={pet.imageUrl} alt={pet.name} className="w-16 h-16 rounded-full object-cover border-2 border-muted" />
@@ -503,7 +576,7 @@ export function VetChatStandalone() {
 
                 <div
                   {...getNewPetProps()}
-                  className="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer hover:bg-[#ff6b4a]/5 transition-all"
+                  className="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer hover:bg-[#ff6b4a]/[0.03] hover:border-[#ff6b4a]/30 transition-all duration-300"
                 >
                   <input {...getNewPetInput()} />
                   {isCreatingPet ? (
@@ -522,14 +595,14 @@ export function VetChatStandalone() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-2 border-dashed border-[#ff6b4a]/20">
+            <Card className="border border-black/[0.04] shadow-[0_4px_24px_rgba(0,0,0,0.04)] rounded-3xl overflow-hidden">
               <CardHeader className="text-center">
                 <User className="w-12 h-12 mx-auto mb-2 text-[#ff6b4a]" />
                 <CardTitle>Whom are we helping today?</CardTitle>
                 <CardDescription>Upload a photo of your pet for instant identification.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div {...getNewPetProps()} className="border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer hover:bg-[#ff6b4a]/5 transition-all">
+                <div {...getNewPetProps()} className="border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer hover:bg-[#ff6b4a]/[0.03] hover:border-[#ff6b4a]/30 transition-all duration-300">
                   <input {...getNewPetInput()} />
                   {isCreatingPet ? (
                     <div className="space-y-4">
@@ -551,116 +624,215 @@ export function VetChatStandalone() {
       )}
 
       {step === "pet_details" && (
-        <Card className="border-[#ff6b4a]/20 shadow-xl overflow-hidden">
-          <div className="h-2 bg-[#ff6b4a]" />
-          <CardHeader>
-            <CardTitle className="text-2xl">Confirm Patient Details</CardTitle>
-            <CardDescription>The AI has analyzed your photo. Please verify the following information.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-8 p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>Species</Label>
-                <Input value={petInfo.species} onChange={(e) => setPetInfo({...petInfo, species: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label>Breed</Label>
-                <Input value={petInfo.breed} onChange={(e) => setPetInfo({...petInfo, breed: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label>Weight (Lbs)</Label>
-                <Input value={petInfo.weight} onChange={(e) => setPetInfo({...petInfo, weight: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label>Age (Years) <span className="text-red-500">*</span></Label>
-                <Input placeholder="e.g. 3" value={petInfo.age} onChange={(e) => setPetInfo({...petInfo, age: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label>Gender <span className="text-red-500">*</span></Label>
-                <Select 
-                  value={petInfo.gender} 
-                  onValueChange={(val) => setPetInfo({...petInfo, gender: val})}
-                >
-                  <SelectTrigger className="w-full h-11 bg-white/50 dark:bg-black/50 backdrop-blur-sm border-2">
-                    <SelectValue placeholder="Select Gender" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[10001]">
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <Button 
-              className="w-full bg-[#ff6b4a] hover:bg-[#e05a3b] text-lg font-bold py-6 group" 
-              disabled={loading}
-              onClick={async () => {
-                if (loading) return;
+        <div className="space-y-4">
+          <Card className="border-[#ff6b4a]/20 shadow-xl overflow-hidden bg-white/60 dark:bg-black/60 backdrop-blur-xl">
+            <div className="h-2 bg-[#ff6b4a]" />
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="text-2xl md:text-3xl font-bold">{petInfo.species || "Pet"}'s Digital Profile</CardTitle>
+              <CardDescription>Generated by PetCare AI Analysis</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 md:p-6 space-y-4">
+              {/* Profile Card Header */}
+              <div className="flex flex-col md:flex-row gap-6 items-start">
+                <div className="w-full md:w-48 h-48 rounded-2xl overflow-hidden shadow-lg border-4 border-white/50">
+                  {pets?.find(p => p.id === selectedPetId)?.imageUrl ? (
+                    <img 
+                      src={pets.find(p => p.id === selectedPetId)?.imageUrl || ""} 
+                      alt={petInfo.species} 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-[#ff6b4a]/10 flex items-center justify-center">
+                      <PawPrint className="w-12 h-12 text-[#ff6b4a]/40" />
+                    </div>
+                  )}
+                </div>
                 
-                if (!petInfo.age || !petInfo.gender) {
-                  toast({
-                    variant: "destructive",
-                    title: "Missing Details",
-                    description: "Please provide your pet's age and gender to get an accurate consultation."
-                  });
-                  return;
-                }
+                <div className="flex-1 w-full grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Species</p>
+                    <p className="text-lg font-semibold">{petInfo.species}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Breed / Variety</p>
+                    <p className="text-lg font-semibold">{petInfo.breed || "TBD during scan"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Gender</p>
+                    <Select 
+                      value={petInfo.gender} 
+                      onValueChange={(val) => setPetInfo({...petInfo, gender: val})}
+                    >
+                      <SelectTrigger className="w-full h-10 bg-white/50 dark:bg-black/50 border-2">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[10001]">
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Age (Years) <span className="text-red-500">*</span></p>
+                    <Input 
+                      placeholder="e.g. 3" 
+                      value={petInfo.age} 
+                      onChange={(e) => setPetInfo({...petInfo, age: e.target.value})}
+                      className="h-10 text-lg font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
 
-                const credits = user ? Number(user.vetChatCredits ?? 0) : 0;
-                if (credits <= 0) {
-                  handleBuyCredits();
-                } else {
-                  setStep("chat");
-                  // Trigger all setup tasks in PARALLEL for maximum speed
-                  Promise.all([
-                    // 1. Sync pet details (Global Sync)
-                    (async () => {
-                      if (selectedPetId) {
-                        try {
-                          await apiRequest("PATCH", `/api/pets/${selectedPetId}`, {
-                            age: petInfo.age,
-                            gender: petInfo.gender,
-                            weight: petInfo.weight,
-                            breed: petInfo.breed
-                          });
-                          queryClient.invalidateQueries({ queryKey: ["/api/pets"] });
-                          queryClient.invalidateQueries({ queryKey: [`/api/pets/${selectedPetId}`] });
-                        } catch (e) {
-                          console.error("Failed to sync pet details to database");
-                        }
-                      }
-                    })(),
-                    // 2. Initialize chat session
-                    (async () => {
-                      try {
-                        const res = await apiRequest("POST", "/api/standalone/vet-chat", {
-                          userId: user?.dbId,
-                          petInfo: petInfo,
-                          chatHistory: []
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#ff6b4a]/5 p-6 rounded-2xl border border-[#ff6b4a]/10">
+                <div className="space-y-2">
+                  <Label className="text-sm font-bold text-[#ff6b4a]">Current Weight (Lbs)</Label>
+                  <Input 
+                    value={petInfo.weight} 
+                    onChange={(e) => setPetInfo({...petInfo, weight: e.target.value})}
+                    placeholder="Enter weight"
+                  />
+                </div>
+                <div className="flex items-end gap-3">
+                   <Button 
+                    variant="outline"
+                    className="flex-1 h-12 rounded-xl"
+                    onClick={() => setStep("pet_select")}
+                   >
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back
+                   </Button>
+                   <Button 
+                    className="flex-[2] bg-[#ff6b4a] hover:bg-[#e05a3b] text-white font-bold h-12 rounded-xl group" 
+                    disabled={loading}
+                    onClick={async () => {
+                      if (loading) return;
+                      
+                      if (!petInfo.age || !petInfo.gender) {
+                        toast({
+                          variant: "destructive",
+                          title: "Missing Details",
+                          description: "Please provide your pet's age and gender."
                         });
-                        const data = await res.json();
-                        if (data.id) setCurrentChatId(data.id);
-                      } catch (e) {
-                         console.error("Failed to initialize empty session.");
+                        return;
                       }
-                    })(),
-                    // 3. Fetch initial questions
-                    fetchInitialQuestions(petInfo.species, petInfo.breed)
-                  ]);
-                }
-              }}
-            >
-              Start Consultation <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Button>
-          </CardContent>
-        </Card>
+
+                      const credits = user ? Number(user.vetChatCredits ?? 0) : 0;
+                      if (credits <= 0) {
+                        handleBuyCredits();
+                      } else {
+                        setStep("chat");
+                        // Sync pet details
+                        if (selectedPetId) {
+                          try {
+                            await apiRequest("PATCH", `/api/pets/${selectedPetId}`, {
+                              age: petInfo.age,
+                              gender: petInfo.gender,
+                              weight: petInfo.weight,
+                              breed: petInfo.breed
+                            });
+                          } catch (e) {
+                            console.error("Failed to sync pet details to database");
+                          }
+                        }
+                        // Initialize session and questions
+                        fetchInitialQuestions(petInfo.species, petInfo.breed);
+                      }
+                    }}
+                  >
+                    Go to Vet Chat <MessageSquare className="ml-2 w-5 h-5 group-hover:scale-110 transition-transform" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-6">
+            <Card className="border-border/50 bg-background/60 backdrop-blur-sm overflow-hidden">
+               <CardHeader className="bg-primary/5 pb-0">
+                <CardTitle className="text-xl flex items-center gap-2 pt-4 px-6">
+                  <HeartPulse className="w-5 h-5 text-primary" />
+                  Veterinary Care
+                </CardTitle>
+                <CardDescription className="px-6 pb-2">Comprehensive health tracking and assessment tools</CardDescription>
+                <Tabs defaultValue="consultation" className="w-full">
+                  <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-12 px-6">
+                    <TabsTrigger value="consultation" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-bold">
+                      Consultation
+                    </TabsTrigger>
+                    <TabsTrigger value="assessment" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-bold">
+                      Health Assessment
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="consultation" className="p-6 mt-0">
+                    <VetConsultation pet={pets?.find(p => p.id === selectedPetId) || (pets && pets[0])!} />
+                  </TabsContent>
+                  <TabsContent value="assessment" className="p-6 mt-0">
+                    <HealthAssessmentQuiz pet={pets?.find(p => p.id === selectedPetId) || (pets && pets[0])!} />
+                  </TabsContent>
+                </Tabs>
+              </CardHeader>
+            </Card>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-[#ff6b4a]" />
+              How can we help you today?
+            </h3>
+            <p className="text-muted-foreground text-sm">Select a specific health category to get targeted guidance instantly.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {issueCategories.map(category => (
+                <Card 
+                  key={category.id} 
+                  className="cursor-pointer hover:border-[#ff6b4a] hover:bg-[#ff6b4a]/5 transition-all group overflow-hidden border-2"
+                  onClick={() => {
+                    const credits = user ? Number(user.vetChatCredits ?? 0) : 0;
+                    if (credits <= 0) {
+                      handleBuyCredits();
+                      return;
+                    }
+                    setSelectedPetId(selectedPetId);
+                    setStep("chat");
+                    fetchInitialQuestions(petInfo.species, petInfo.breed);
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <h4 className="font-bold text-[#ff6b4a] group-hover:scale-105 transition-transform origin-left">{category.name}</h4>
+                    <p className="text-xs text-muted-foreground mt-1 mb-3">{category.description}</p>
+                    <div className="space-y-1.5 border-t pt-3 border-[#ff6b4a]/10">
+                      {category.examples.map((example, idx) => (
+                        <button
+                          key={idx}
+                          className="w-full text-left text-[11px] text-[#ff6b4a] bg-[#ff6b4a]/5 hover:bg-[#ff6b4a]/10 p-2 rounded-lg transition-colors font-medium border border-[#ff6b4a]/20"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const credits = user ? Number(user.vetChatCredits ?? 0) : 0;
+                            if (credits <= 0) {
+                              handleBuyCredits();
+                              return;
+                            }
+                            setStep("chat");
+                            handleSendMessage(example);
+                          }}
+                        >
+                          {example}
+                        </button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {step === "chat" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
-            <Card className="h-[600px] flex flex-col border-2 border-[#0a0a0a] rounded-2xl overflow-hidden shadow-2xl">
-              <CardHeader className="bg-[#0a0a0a] text-white py-4 shrink-0 rounded-t-xl rounded-b-none">
+            <Card className="h-[600px] flex flex-col border border-black/[0.06] rounded-3xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+              <CardHeader className="bg-gradient-to-r from-[#0a0a0a] to-[#1a1a2e] text-white py-4 shrink-0">
                 <div className="flex items-center justify-between w-full">
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -774,7 +946,7 @@ export function VetChatStandalone() {
           </div>
 
           <div className="space-y-6">
-            <Card className="border-[#ff6b4a]/20">
+            <Card className="border border-black/[0.04] shadow-[0_4px_24px_rgba(0,0,0,0.04)] rounded-2xl">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Session Status</CardTitle>
               </CardHeader>

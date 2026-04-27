@@ -7,13 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Upload, Loader2, AlertTriangle, CheckCircle2, ChevronRight, User, HeartPulse, MessageSquare, PawPrint, Plus } from "lucide-react";
+import { Upload, Loader2, AlertTriangle, CheckCircle2, ChevronRight, User, HeartPulse, MessageSquare, PawPrint, Plus, Lock, Send, Sparkles, ArrowLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type Pet, insertPetSchema } from "@shared/schema";
+import ReactMarkdown from 'react-markdown';
 
 type TreatmentOption = {
   name: string;
@@ -36,8 +37,8 @@ type InjuryAnalysis = {
   treatmentOptions: TreatmentOption[];
 };
 
-// Step 1 is now "pet_select" — user picks existing pet OR creates new one via photo upload
-type Step = "pet_select" | "create_pet" | "pet_details" | "injury_photo" | "analysis";
+// Step labels updated
+type Step = "pet_select" | "create_pet" | "pet_details" | "injury_photo" | "injury_details" | "analysis";
 
 const MAX_IMAGE_SIZE = 15 * 1024 * 1024;
 
@@ -97,6 +98,25 @@ export function InjuryScanner() {
   const [currentScanId, setCurrentScanId] = useState<number | null>(null);
   const [isPaid, setIsPaid] = useState<boolean>(false);
   const [fulfillmentStatus, setFulfillmentStatus] = useState<string | null>(null);
+  
+  // Injury Details Form State
+  const [injuryDetails, setInjuryDetails] = useState({
+    location: "",
+    duration: "",
+    symptoms: [] as string[],
+    additionalInfo: ""
+  });
+
+  const commonSymptoms = [
+    "Limping", "Swelling", "Bleeding", "Redness", "Hair loss", 
+    "Discharge", "Scratching", "Licking excessively", 
+    "Pain when touched", "Reduced activity", "Loss of appetite", "Whining/vocalization"
+  ];
+
+  // Chat State for Follow-up
+  const [chatHistory, setChatHistory] = useState<any[]>([]);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
 
   const isUnlocked = isPaid || Number(user?.freeInjuryScanUsed ?? 1) === 0;
 
@@ -286,24 +306,37 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => setInjuryImage(reader.result as string);
-    reader.readAsDataURL(file);
+    setIsAnalyzing(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setInjuryImage(reader.result as string);
+        setStep("injury_details");
+        setIsAnalyzing(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      toast({ variant: "destructive", title: "Upload Failed", description: "Could not process image." });
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleAnalyzeInjury = async () => {
+    if (!injuryImage) return;
 
     setIsAnalyzing(true);
     try {
-      const base64Data = (await new Promise((resolve) => {
-        const r = new FileReader();
-        r.onload = () => resolve(r.result as string);
-        r.readAsDataURL(file);
-      })) as string;
-
-      const base64Image = base64Data.split(",")[1];
+      const base64Image = injuryImage.split(",")[1];
       const response = await apiRequest("POST", "/api/analyze/injury", {
         imageData: base64Image,
         petSpecies: petInfo.species,
         petBreed: petInfo.breed,
-        injuryDetails: {},
+        injuryDetails: {
+          location: injuryDetails.location,
+          duration: injuryDetails.duration,
+          symptoms: injuryDetails.symptoms,
+          additionalInfo: injuryDetails.additionalInfo
+        },
       });
 
       if (!response.ok) throw new Error();
@@ -321,6 +354,18 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
         const responseData = await saveRes.json();
         setCurrentScanId(responseData.scanId);
 
+        // Also save to pet profile if possible
+        if (selectedPetId) {
+          try {
+            await apiRequest("PATCH", `/api/pets/${selectedPetId}`, {
+              lastInjuryAnalysis: result
+            });
+            queryClient.invalidateQueries({ queryKey: ["/api/pets", user.dbId] });
+          } catch (err) {
+            console.error("Failed to save injury analysis to pet profile:", err);
+          }
+        }
+
         const isScanUnlocked = responseData.isPaid === 1 || responseData.isPaid === true;
         setIsPaid(isScanUnlocked);
         await refreshUser();
@@ -331,6 +376,42 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
       toast({ variant: "destructive", title: "Analysis Failed", description: "Failed to analyze injury. Please try again." });
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || !user?.dbId || !analysis) return;
+
+    const userMsg = { role: "user", content: inputMessage.trim() };
+    const updatedHistory = [...chatHistory, userMsg];
+    setChatHistory(updatedHistory);
+    setInputMessage("");
+    setIsSending(true);
+
+    try {
+      const res = await apiRequest("POST", "/api/chat/vet", {
+        message: inputMessage.trim(),
+        userId: user.dbId,
+        petInfo,
+        chatHistory: chatHistory.map(m => ({ role: (m.role as any), content: m.content })),
+        injuryContext: {
+          injuryDescription: analysis.injuryDescription,
+          severity: analysis.severity,
+          immediateActions: analysis.immediateActions,
+          treatmentOptions: analysis.treatmentOptions,
+        },
+        isStandalone: true
+      });
+
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      
+      setChatHistory([...updatedHistory, { role: "assistant", content: data.response }]);
+      await refreshUser();
+    } catch (err) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to send message." });
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -378,6 +459,15 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-20">
+      <Button 
+        variant="ghost" 
+        onClick={() => setLocation("/")}
+        className="hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a] transition-all group rounded-2xl"
+      >
+        <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
+        Back to Dashboard
+      </Button>
+
       {/* Progress Indicators */}
       <div className="flex justify-between mb-8 opacity-60">
         {stepLabels.map((s, idx) => (
@@ -386,8 +476,8 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
             className={`flex flex-col items-center gap-2 ${progressStep === s.id ? "text-[#ff6b4a] opacity-100 font-bold" : ""}`}
           >
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs border ${
-                progressStep === s.id ? "border-[#ff6b4a] bg-[#ff6b4a]/10" : ""
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold border-2 transition-all duration-300 ${
+                progressStep === s.id ? "border-[#ff6b4a] bg-[#ff6b4a] text-white shadow-md shadow-[#ff6b4a]/20" : "border-black/10"
               }`}
             >
               {idx + 1}
@@ -399,7 +489,7 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
 
       {/* ── STEP 1A: Pet Select (has pets) or Create Pet (no pets) ── */}
       {step === "pet_select" && (
-        <Card className="border-2 border-dashed border-muted hover:border-[#ff6b4a]/30 transition-all">
+        <Card className="border border-black/[0.04] shadow-[0_4px_24px_rgba(0,0,0,0.04)] rounded-3xl overflow-hidden">
           <CardHeader className="text-center">
             <PawPrint className="w-12 h-12 mx-auto mb-2 text-[#ff6b4a]" />
             <CardTitle>
@@ -515,7 +605,7 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
 
       {/* ── STEP 1B: Create New Pet (photo upload → auto-identify, mirrors home.tsx) ── */}
       {step === "create_pet" && (
-        <Card className="border-2 border-dashed border-muted hover:border-[#ff6b4a]/30 transition-all">
+        <Card className="border border-black/[0.04] shadow-[0_4px_24px_rgba(0,0,0,0.04)] rounded-3xl overflow-hidden">
           <CardHeader className="text-center">
             <PawPrint className="w-12 h-12 mx-auto mb-2 text-[#ff6b4a]" />
             <CardTitle>Add New Pet</CardTitle>
@@ -526,8 +616,8 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
           <CardContent className="space-y-6">
             <div
               {...getNewPetProps()}
-              className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 relative
-                ${isCreatingPet ? "cursor-wait border-primary/20 bg-primary/5" : "cursor-pointer border-primary/40 hover:border-[#ff6b4a] hover:bg-[#ff6b4a]/5 hover:-translate-y-1 hover:shadow-lg"}`}
+              className={`border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 relative
+                ${isCreatingPet ? "cursor-wait border-black/10 bg-[#ff6b4a]/[0.03]" : "cursor-pointer border-black/10 hover:border-[#ff6b4a]/40 hover:bg-[#ff6b4a]/[0.03]"}`}
             >
               <input {...getNewPetInput()} />
               {isCreatingPet ? (
@@ -596,73 +686,203 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
                 </Select>
               </div>
             </div>
-            <Button
-              className="w-full bg-[#ff6b4a] hover:bg-[#e05a3b]"
-              onClick={() => {
-                if (!petInfo.age || !petInfo.gender || !petInfo.weight) {
-                  toast({
-                    variant: "destructive",
-                    title: "Required Fields",
-                    description: "Please enter your pet's age, gender, and weight to continue.",
-                  });
-                  return;
-                }
-                
-                // SAVE data to the database before moving to injury scan
-                if (selectedPetId) {
-                  updatePetDetailsMutation.mutate({
-                    species: petInfo.species,
-                    breed: petInfo.breed,
-                    weight: petInfo.weight,
-                    age: petInfo.age,
-                    gender: petInfo.gender,
-                  } as any);
-                }
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setStep("pet_select")}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
+              </Button>
+              <Button
+                className="flex-[2] bg-[#ff6b4a] hover:bg-[#e05a3b]"
+                onClick={() => {
+                  if (!petInfo.age || !petInfo.gender || !petInfo.weight) {
+                    toast({
+                      variant: "destructive",
+                      title: "Required Fields",
+                      description: "Please enter your pet's age, gender, and weight to continue.",
+                    });
+                    return;
+                  }
+                  
+                  if (selectedPetId) {
+                    updatePetDetailsMutation.mutate({
+                      species: petInfo.species,
+                      breed: petInfo.breed,
+                      weight: petInfo.weight,
+                      age: petInfo.age,
+                      gender: petInfo.gender,
+                    } as any);
+                  }
 
-                setStep("injury_photo");
-              }}
-            >
-              Next: Upload Injury Photo <ChevronRight className="ml-1 w-4 h-4" />
-            </Button>
+                  setStep("injury_photo");
+                }}
+              >
+                Next: Upload Injury Photo <ChevronRight className="ml-1 w-4 h-4" />
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
 
       {/* ── STEP 3: Injury Photo ── */}
       {step === "injury_photo" && (
-        <Card className="border-2 border-dashed border-red-200 bg-red-50/10 dark:bg-red-950/5">
+        <Card className="border border-red-200/40 bg-red-50/20 rounded-3xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
           <CardHeader className="text-center">
             <HeartPulse className="w-12 h-12 mx-auto mb-2 text-red-500" />
             <CardTitle>Step 2: Scan the Injury</CardTitle>
             <CardDescription>Take a clear, close-up photo of the affected area.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
             <div
               {...getInjuryProps()}
-              className="border-2 border-dashed border-red-200/50 rounded-xl p-12 text-center cursor-pointer hover:bg-red-50/20 transition-colors"
+              className="border-2 border-dashed border-red-200/30 rounded-2xl p-12 text-center cursor-pointer hover:bg-red-50/30 hover:border-red-300/50 transition-all duration-300"
             >
               <input {...getInjuryInput()} />
               {isAnalyzing ? (
                 <div className="space-y-4">
                   <Loader2 className="w-10 h-10 animate-spin mx-auto text-red-500" />
-                  <p className="font-semibold text-red-600 animate-pulse">Running AI Medical Analysis...</p>
-                  <p className="text-sm text-muted-foreground italic text-center">Comparing against 50,000+ veterinary case files</p>
+                  <p className="font-semibold text-red-600 animate-pulse">Processing image...</p>
                 </div>
+              ) : injuryImage ? (
+                <img src={injuryImage} alt="Injury" className="max-h-48 mx-auto rounded-lg object-cover" />
               ) : (
                 <div className="space-y-4">
                   <Upload className="w-10 h-10 mx-auto text-red-400" />
                   <p className="font-medium">Upload Injury Photo</p>
-                  <p className="text-sm text-muted-foreground max-w-xs mx-auto">Ensure good lighting and focus for higher accuracy.</p>
+                  <p className="text-sm text-muted-foreground">Click or drag photo here</p>
                 </div>
               )}
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setStep("pet_details")}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
+              </Button>
+              <Button
+                className="flex-[2] bg-red-500 hover:bg-red-600 text-white"
+                disabled={!injuryImage || isAnalyzing}
+                onClick={() => setStep("injury_details")}
+              >
+                Next: Provide Details <ChevronRight className="ml-1 w-4 h-4" />
+              </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* ── STEP 4: Analysis Results (unchanged) ── */}
+      {/* ── STEP 4: Injury Details Form ── */}
+      {step === "injury_details" && (
+        <Card className="border border-black/[0.04] shadow-[0_4px_24px_rgba(0,0,0,0.04)] rounded-3xl overflow-hidden">
+          <CardHeader>
+            <CardTitle>Mandatory Injury Details</CardTitle>
+            <CardDescription>Providing these details helps our AI give more accurate recommendations for {petInfo.species}.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Location on {petInfo.species}'s body</Label>
+                <Input 
+                  placeholder="e.g., Right front paw, Left ear, etc." 
+                  value={injuryDetails.location}
+                  onChange={(e) => setInjuryDetails({...injuryDetails, location: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>How long has this been a problem?</Label>
+                <Select 
+                  value={injuryDetails.duration} 
+                  onValueChange={(val) => setInjuryDetails({...injuryDetails, duration: val})}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Duration" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[10001]">
+                    <SelectItem value="Less than 24 hours">Less than 24 hours</SelectItem>
+                    <SelectItem value="1-3 days">1-3 days</SelectItem>
+                    <SelectItem value="3-7 days">3-7 days</SelectItem>
+                    <SelectItem value="More than a week">More than a week</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Symptoms observed (select all that apply)</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {commonSymptoms.map(symptom => (
+                    <button
+                      key={symptom}
+                      onClick={() => {
+                        setInjuryDetails(prev => ({
+                          ...prev,
+                          symptoms: prev.symptoms.includes(symptom)
+                            ? prev.symptoms.filter(s => s !== symptom)
+                            : [...prev.symptoms, symptom]
+                        }));
+                      }}
+                      className={`text-xs p-2 rounded-lg border-2 transition-all ${
+                        injuryDetails.symptoms.includes(symptom)
+                          ? "border-[#ff6b4a] bg-[#ff6b4a]/10 text-[#ff6b4a]"
+                          : "border-muted hover:border-[#ff6b4a]/30"
+                      }`}
+                    >
+                      {symptom}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Additional Details</Label>
+                <textarea 
+                  className="w-full min-h-[100px] p-3 rounded-lg border-2 bg-background focus:border-[#ff6b4a] outline-none"
+                  placeholder="Describe anything else about the injury..."
+                  value={injuryDetails.additionalInfo}
+                  onChange={(e) => setInjuryDetails({...injuryDetails, additionalInfo: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setStep("injury_photo")}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
+              </Button>
+              <Button 
+                className="flex-[2] bg-[#ff6b4a] hover:bg-[#e05a3b] font-bold"
+                disabled={isAnalyzing || !injuryDetails.location || !injuryDetails.duration}
+                onClick={handleAnalyzeInjury}
+              >
+                {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "Run AI Analysis"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── STEP 5: Analysis Results ── */}
       {step === "analysis" && analysis && (
         <div className="space-y-6">
+          <div className="flex items-center gap-4 mb-4">
+             <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setStep("injury_details")}
+                className="gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" /> Back to Details
+              </Button>
+          </div>
+
           <Alert
             className={`border-2 ${
               analysis.severity === "HIGH" ? "border-red-500 bg-red-50/10" : "border-yellow-500 bg-yellow-50/10"
@@ -691,37 +911,63 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
                 <div
                   className={`space-y-6 ${!isUnlocked ? "blur-[8px] pointer-events-none select-none opacity-40" : ""}`}
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 gap-6">
                     <div className="space-y-4">
-                      <h3 className="text-lg font-bold border-b pb-2">Treatment Options</h3>
-                      <div className="space-y-4">
-                        {analysis.treatmentOptions.map((opt, i) => (
-                          <div key={i} className="p-4 bg-muted/50 rounded-xl space-y-1">
-                            <p className="font-bold text-[#ff6b4a]">{opt.name}</p>
-                            <p className="text-sm">{opt.description}</p>
-                            <div className="mt-2 text-xs opacity-70">
-                              <b>Ingredients:</b> {opt.activeIngredients.join(", ")}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-bold border-b pb-2">Immediate Steps</h3>
+                      <h3 className="text-lg font-bold border-b pb-2 flex items-center gap-2">
+                        <HeartPulse className="w-5 h-5 text-red-500" />
+                        Immediate Actions
+                      </h3>
                       <ul className="space-y-2">
                         {analysis.immediateActions.map((action, i) => (
-                          <li key={i} className="flex gap-2 text-sm">
-                            <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                            {action}
+                          <li key={i} className="flex gap-2 text-sm p-3 bg-red-50/50 dark:bg-red-950/20 rounded-xl">
+                            <CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                            <span className="font-medium">{action}</span>
                           </li>
                         ))}
                       </ul>
-                      <h3 className="text-lg font-bold border-b pb-2 pt-4">Vet Recommendation</h3>
-                      <p className="text-sm">
-                        {analysis.requiredVetVisit
-                          ? "⚠️ This condition requires a professional veterinary examination."
-                          : "✅ Home care may be sufficient, but monitor closely."}
-                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-bold border-b pb-2 flex items-center gap-2">
+                        <Badge className="bg-[#ff6b4a]">Treatment Options</Badge>
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {analysis.treatmentOptions.map((opt, i) => (
+                          <Card key={i} className="border-none bg-muted/30 shadow-none">
+                            <CardContent className="p-4 space-y-2">
+                              <p className="font-bold text-[#ff6b4a]">{opt.name}</p>
+                              <p className="text-xs leading-relaxed">{opt.description}</p>
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {opt.brandNames.map((brand, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-[10px] py-0">{brand}</Badge>
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-bold border-b pb-2 flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-green-500" />
+                        Recommendations
+                      </h3>
+                      <ul className="space-y-3">
+                        {analysis.recommendations.map((rec, i) => (
+                          <li key={i} className="text-sm p-3 bg-green-50/50 dark:bg-green-950/20 rounded-xl italic">
+                            {rec}
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="p-4 bg-muted/50 rounded-xl">
+                        <p className="text-sm font-bold">Vet Visit Summary:</p>
+                        <p className="text-sm mt-1">
+                          {analysis.requiredVetVisit
+                            ? "🚨 This condition requires a professional veterinary examination immediately."
+                            : "✅ Home monitoring is likely sufficient, but visit a vet if symptoms persist."}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -776,35 +1022,77 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
             </CardContent>
           </Card>
 
-          {/* AI Vet Chat */}
-          <div className="bg-muted/30 rounded-2xl p-8 text-center border-2 border-dashed flex flex-col items-center gap-4">
-            <MessageSquare className="w-12 h-12 text-muted-foreground opacity-20" />
-            <div className="space-y-1">
-              <h3 className={`font-bold text-lg ${!isUnlocked ? "opacity-40" : ""}`}>24/7 Veterinary Assistant</h3>
-              <p className={`text-sm text-muted-foreground max-w-sm ${!isUnlocked ? "opacity-40" : ""}`}>
-                Ask follow-up questions about this injury, recovery, or diet directly to our expert AI Vet.
-              </p>
+          {/* Embedded Follow-up Chatbot */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 px-2">
+              <MessageSquare className="w-5 h-5 text-[#ff6b4a]" />
+              <h3 className="font-bold text-xl text-foreground">Follow-up with AI Vet</h3>
             </div>
-            {isUnlocked ? (
-              <Button
-                className="gap-2 bg-[#ff6b4a] hover:bg-[#e05a3b] px-8 py-6 text-lg font-bold shadow-lg shadow-orange-500/20 animate-in fade-in zoom-in duration-300"
-                onClick={() => {
-                const injuryContext = encodeURIComponent(JSON.stringify({
-                  petId: selectedPetId,
-                  petInfo,
-                  injuryDescription: analysis?.injuryDescription,
-                  severity: analysis?.severity,
-                }));
-                setLocation(`/vet?injuryContext=${injuryContext}`);
-              }}
-              >
-                Start Consultation <MessageSquare className="w-5 h-5 ml-1" />
-              </Button>
-            ) : (
-              <Button variant="outline" disabled className="gap-2 border-muted-foreground/30 text-muted-foreground px-8 py-6">
-                Unlock with Report
-              </Button>
-            )}
+            
+            <Card className="border border-border rounded-2xl overflow-hidden bg-background transition-all duration-300">
+              {!isUnlocked ? (
+                 <CardContent className="p-12 text-center flex flex-col items-center gap-4 opacity-40">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                      <Lock className="w-8 h-8" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-lg">Chat Locked</h4>
+                      <p className="text-sm text-muted-foreground italic">Unlock the full report to start a follow-up conversation with our AI Vet.</p>
+                    </div>
+                    <Button variant="outline" disabled className="px-10">Consultation Locked</Button>
+                 </CardContent>
+              ) : (
+                <>
+                  <CardContent className="h-[400px] overflow-y-auto p-6 space-y-4">
+                    {chatHistory.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
+                        <MessageSquare className="w-12 h-12 mb-2 text-primary" />
+                        <p className="font-medium">Have questions about these results?</p>
+                        <p className="text-xs text-muted-foreground">Ask about recovery times, symptoms to watch for, or diet changes.</p>
+                      </div>
+                    ) : (
+                      chatHistory.map((msg, i) => (
+                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[85%] p-4 rounded-2xl ${
+                            msg.role === 'user' 
+                              ? 'bg-muted/60 text-foreground rounded-tr-none' 
+                              : 'bg-white shadow-sm border rounded-tl-none dark:bg-gray-800'
+                          }`}>
+                            <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert">
+                              <ReactMarkdown>
+                                {msg.content}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                  <div className="p-4 border-t bg-background/50 flex gap-2">
+                    <Input
+                      placeholder="Ask the AI Vet a follow-up..."
+                      value={inputMessage}
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                      disabled={isSending}
+                      className="bg-white/80 dark:bg-black/80 h-12"
+                    />
+                    <Button 
+                      onClick={handleSendMessage}
+                      disabled={isSending || !inputMessage.trim()}
+                      className="h-12 w-12 bg-[#ff6b4a] hover:bg-[#e05a3b]"
+                    >
+                      {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </Card>
+            <div className="flex justify-center">
+               <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                 <Sparkles className="w-3 h-3 text-[#ff6b4a]" /> Certified AI Veterinary Context Enabled
+               </p>
+            </div>
           </div>
         </div>
       )}

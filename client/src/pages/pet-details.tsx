@@ -122,96 +122,106 @@ export default function PetDetails() {
   return (
     <>
       <Header />
-      <div className="container mx-auto px-4 py-4 md:py-8 max-w-3xl">
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <Link href={`/pet/${id}`}>
-            <Button variant="ghost" className="w-full sm:w-auto">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Profile
-            </Button>
-          </Link>
-        </div>
+      <div className="container mx-auto px-4 py-8 max-w-4xl relative z-10">
+        <Link href={`/pet/${id}`}>
+          <Button 
+            variant="ghost" 
+            className="mb-6 hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a] transition-all group rounded-2xl"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+            Back to Profile
+          </Button>
+        </Link>
 
-        <Card>
-          <CardHeader className="p-4 md:p-6">
-            <CardTitle className="text-2xl md:text-3xl">{pet.name}'s Details</CardTitle>
+        <Card className="border border-black/[0.04] shadow-[0_4px_24px_rgba(0,0,0,0.04)] rounded-3xl overflow-hidden bg-white/80 backdrop-blur-xl">
+          <div className="h-2 bg-gradient-to-r from-orange-400 to-[#ff6b4a]" />
+          <CardHeader className="p-6 md:p-8">
+            <CardTitle className="text-3xl font-black tracking-tight">{pet.name}'s Identity Dashboard</CardTitle>
           </CardHeader>
-          <CardContent className="p-4 md:p-6 space-y-6">
+          <CardContent className="p-6 md:p-8 space-y-10">
             <div
               {...getRootProps()}
-              className={`relative group cursor-pointer mb-6 touch-manipulation ${
-                isDragActive ? "ring-2 ring-primary" : ""
+              className={`relative group cursor-pointer overflow-hidden rounded-3xl border-2 border-dashed transition-all duration-300 ${
+                isDragActive ? "border-[#ff6b4a] bg-[#ff6b4a]/5" : "border-black/5 hover:border-[#ff6b4a]/40 bg-black/[0.01]"
               }`}
             >
               <input {...getInputProps()} />
               {(imagePreview || pet.imageUrl) ? (
-                <>
+                <div className="relative aspect-video md:aspect-[21/9]">
                   <img
                     src={imagePreview || pet.imageUrl || ''}
                     alt={pet.name}
-                    className="w-full max-h-72 md:max-h-96 object-cover rounded-lg"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
-                    <Camera className="h-8 w-8 text-white" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center backdrop-blur-sm">
+                    <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 transform scale-90 group-hover:scale-100 transition-transform">
+                        <Camera className="h-8 w-8 text-white" />
+                    </div>
+                    <p className="text-white font-black text-xs mt-4 tracking-widest uppercase">Update Identity Card</p>
                   </div>
-                </>
+                </div>
               ) : (
-                <div className="flex flex-col items-center justify-center p-8 md:p-12 border-2 border-dashed rounded-lg">
-                  <Camera className="h-10 w-10 md:h-12 md:w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground text-center text-sm md:text-base">
-                    Tap to upload a photo
+                <div className="flex flex-col items-center justify-center p-12 md:p-20 text-center">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-orange-100 to-[#ff6b4a]/10 flex items-center justify-center mb-6">
+                    <Camera className="h-10 w-10 text-[#ff6b4a]" />
+                  </div>
+                  <h4 className="text-xl font-black mb-1">Mirror the Beauty</h4>
+                  <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">
+                    Tap to establish a visual profile
                   </p>
                 </div>
               )}
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                   <h3 className="text-lg font-black tracking-tight text-foreground uppercase tracking-widest text-[#ff6b4a] flex items-center gap-2">
+                       <Scan className="w-4 h-4" /> Visual Identity
+                   </h3>
+                   <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: "Species", value: pet.species, icon: "🐾" },
+                        { label: "Breed", value: pet.breed, icon: "🐕" },
+                        { label: "Weight", value: pet.weight, icon: "⚖️" },
+                        { label: "Size", value: pet.size, icon: "📏" },
+                        { label: "Lifespan", value: pet.lifespan, icon: "🧬" }
+                      ].map((item, i) => (
+                        item.value ? (
+                          <div key={i} className="p-4 rounded-2xl bg-black/[0.02] border border-black/[0.02] flex flex-col gap-1">
+                             <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{item.label}</span>
+                             <span className="text-sm font-black flex items-center gap-2">{item.icon} {item.value}</span>
+                          </div>
+                        ) : null
+                      ))}
+                   </div>
+                </div>
+
+                <div className="space-y-6">
+                    <PetMood pet={pet} />
+                </div>
+            </div>
+
             {pet.imageGallery && pet.imageGallery.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-4">Photo Gallery</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="pt-10 border-t border-black/[0.04]">
+                <h3 className="text-xl font-black mb-6 tracking-tight">Memories Vault</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {pet.imageGallery.map((imageUrl, index) => (
-                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden">
+                    <div key={index} className="group relative aspect-square rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500">
                       <img
                         src={imageUrl}
                         alt={`${pet.name}'s photo ${index + 1}`}
-                        className="absolute inset-0 w-full h-full object-cover"
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   ))}
                 </div>
               </div>
             )}
-
-            <div className="space-y-4">
-              <PetMood pet={pet} />
-              <p className="text-muted-foreground">
-                <span className="font-medium">Species:</span> {pet.species}
-              </p>
-              {pet.breed && (
-                <p className="text-muted-foreground">
-                  <span className="font-medium">Breed:</span> {pet.breed}
-                </p>
-              )}
-              {pet.weight && (
-                <p className="text-muted-foreground">
-                  <span className="font-medium">Weight:</span> {pet.weight}
-                </p>
-              )}
-              {pet.size && (
-                <p className="text-muted-foreground">
-                  <span className="font-medium">Size:</span> {pet.size}
-                </p>
-              )}
-              {pet.lifespan && (
-                <p className="text-muted-foreground">
-                  <span className="font-medium">Expected Lifespan:</span> {pet.lifespan}
-                </p>
-              )}
-            </div>
           </CardContent>
         </Card>
         
-        <div className="mt-6">
+        <div className="mt-12">
           <PetInjuryScanner pet={pet} />
         </div>
       </div>

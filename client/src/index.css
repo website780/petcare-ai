@@ -55,6 +55,65 @@
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply antialiased bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-image: radial-gradient(ellipse at 50% 0%, hsl(11 100% 65% / 0.03) 0%, transparent 60%);
+    background-attachment: fixed;
   }
+
+  /* Premium selection highlight */
+  ::selection {
+    background-color: hsl(11 100% 65% / 0.15);
+    color: inherit;
+  }
+
+  /* Smooth scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(215.4 16.3% 46.9% / 0.3);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(215.4 16.3% 46.9% / 0.5);
+  }
+}
+
+/* Global smooth transitions on interactive elements */
+@layer utilities {
+  .transition-premium {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* Floating animation for hero images */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Shimmer effect for premium elements */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, hsl(11 100% 65% / 0.08), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
 }

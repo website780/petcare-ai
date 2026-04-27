@@ -14,6 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { Pet, Reminder } from "@shared/schema";
 import { Apple, Clock, AlertTriangle, Cookie, Utensils, Bell, Plus, Edit2, Check, X } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
@@ -131,7 +132,7 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
   const [editingReminderId, setEditingReminderId] = useState<number | null>(null);
   const [lastNotificationCheck, setLastNotificationCheck] = useState<Date>(new Date());
   const [isNutritionDialogOpen, setIsNutritionDialogOpen] = useState(false);
-  const [nutritionAnalysis, setNutritionAnalysis] = useState<NutritionAnalysisResult | null>(null);
+  const [nutritionAnalysis, setNutritionAnalysis] = useState<NutritionAnalysisResult | null>((pet as any).nutritionAnalysis || null);
 
   const { data: reminders = [] } = useQuery<Reminder[]>({
     queryKey: [`/api/pets/${pet.id}/reminders`],
@@ -143,11 +144,15 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
       const now = new Date();
       reminders.forEach((reminder: Reminder) => {
         if (reminder.dueTime) {
-          const dueTime = parseISO(reminder.dueTime);
+          // dueTime is format HH:mm, need to parse manually for safety
+          const [hours, minutes] = reminder.dueTime.split(':').map(Number);
+          const dueTime = new Date();
+          dueTime.setHours(hours, minutes, 0, 0);
+          
           const diffInMinutes = Math.abs((now.getTime() - dueTime.getTime()) / (1000 * 60));
           
           // Check if reminder is due (within 1 minute window)
-          if (diffInMinutes <= 1 && !reminder.completed && reminder.title.toLowerCase().includes('feeding')) {
+          if (diffInMinutes <= 1 && !reminder.completed && (reminder.title?.toLowerCase().includes('feeding') || reminder.type === 'feeding')) {
             toast({
               title: "Feeding Time!",
               description: `Time to feed ${pet.name} - ${reminder.title}`,
@@ -191,8 +196,9 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
     mutationFn: async (data: FeedingTimeFormData) => {
       const response = await apiRequest("POST", `/api/pets/${pet.id}/reminders`, {
         type: "feeding",
-        title: data.mealName,
+        title: `Feeding: ${data.mealName}`,
         dueTime: data.time,
+        dueDate: new Date().toISOString(),
         userId: pet.userId,
       });
       if (!response.ok) throw new Error('Failed to add feeding time');
@@ -275,8 +281,19 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
       if (!response.ok) throw new Error('Failed to analyze nutrition');
       return response.json();
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       setNutritionAnalysis(result);
+      
+      // Persist to pet profile
+      try {
+        await apiRequest("PATCH", `/api/pets/${pet.id}`, {
+          nutritionAnalysis: result
+        });
+        queryClient.invalidateQueries({ queryKey: [`/api/pets/${pet.id}`] });
+      } catch (err) {
+        console.error("Failed to save nutrition analysis:", err);
+      }
+
       toast({ title: "AI nutrition analysis completed!" });
       setIsNutritionDialogOpen(false);
     },
@@ -292,7 +309,7 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
   // Group feeding reminders by completed status and sort by time
   const feedingReminders = useMemo(() => {
     return reminders
-      .filter((reminder: Reminder) => reminder.title.toLowerCase().includes('feeding'))
+      .filter((reminder: Reminder) => reminder.title?.toLowerCase().includes('feeding'))
       .sort((a: Reminder, b: Reminder) => {
         if (a.dueTime && b.dueTime) {
           return a.dueTime.localeCompare(b.dueTime);
@@ -470,49 +487,65 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
 
       {/* AI Nutrition Analysis Results */}
       {nutritionAnalysis && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="p-6">
-            <div className="flex items-center mb-4">
-              <Apple className="w-6 h-6 mr-3 text-blue-600" />
-              <h4 className="text-lg font-semibold text-blue-900">AI Nutrition Analysis Results</h4>
+        <Card className="border-none shadow-[0_8px_32px_rgba(37,99,235,0.1)] overflow-hidden rounded-[2rem] bg-gradient-to-tr from-blue-50 to-indigo-50">
+          <div className="h-2 bg-gradient-to-r from-blue-500 to-indigo-500" />
+          <CardContent className="p-8">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 rounded-2xl bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <Apple className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-2xl font-black text-blue-900 tracking-tight">AI Precision Plan</h4>
+                <p className="text-sm font-medium text-blue-700/70">Customized for {pet.name}</p>
+              </div>
             </div>
             
-            <div className="grid gap-4 md:grid-cols-3 mb-6">
-              <div className="bg-white p-4 rounded-lg border">
-                <h5 className="font-semibold text-sm mb-2">Daily Calories</h5>
-                <p className="text-2xl font-bold text-blue-600">{nutritionAnalysis.dailyCalories}</p>
+            <div className="grid gap-6 md:grid-cols-3 mb-8">
+              <div className="bg-white/80 backdrop-blur-sm p-5 rounded-2xl border border-white shadow-sm flex flex-col gap-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">Daily Target</p>
+                <div className="flex items-end gap-1">
+                  <span className="text-3xl font-black text-blue-900">{nutritionAnalysis.dailyCalories}</span>
+                  <span className="text-xs font-bold text-blue-700 mb-1.5 ml-1">kcal</span>
+                </div>
               </div>
-              <div className="bg-white p-4 rounded-lg border">
-                <h5 className="font-semibold text-sm mb-2">Protein</h5>
-                <p className="text-lg font-semibold">{nutritionAnalysis.protein.grams}g ({nutritionAnalysis.protein.percentage}%)</p>
+              <div className="bg-white/80 backdrop-blur-sm p-5 rounded-2xl border border-white shadow-sm flex flex-col gap-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#ff6b4a]">Protein Focus</p>
+                <div className="flex items-end gap-1">
+                  <span className="text-3xl font-black text-blue-900">{nutritionAnalysis.protein.grams}g</span>
+                  <span className="text-xs font-bold text-[#ff6b4a] mb-1.5 ml-1">{nutritionAnalysis.protein.percentage}%</span>
+                </div>
               </div>
-              <div className="bg-white p-4 rounded-lg border">
-                <h5 className="font-semibold text-sm mb-2">Fats</h5>
-                <p className="text-lg font-semibold">{nutritionAnalysis.fats.grams}g ({nutritionAnalysis.fats.percentage}%)</p>
+              <div className="bg-white/80 backdrop-blur-sm p-5 rounded-2xl border border-white shadow-sm flex flex-col gap-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Healthy Fats</p>
+                <div className="flex items-end gap-1">
+                  <span className="text-3xl font-black text-blue-900">{nutritionAnalysis.fats.grams}g</span>
+                  <span className="text-xs font-bold text-emerald-600 mb-1.5 ml-1">{nutritionAnalysis.fats.percentage}%</span>
+                </div>
               </div>
             </div>
 
-            <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="recommended-foods">
-                <AccordionTrigger>Recommended Foods</AccordionTrigger>
+            <Accordion type="single" collapsible className="w-full space-y-4 border-none">
+              <AccordionItem value="recommended-foods" className="border border-blue-100 rounded-2xl bg-white/50 overflow-hidden px-4">
+                <AccordionTrigger className="hover:no-underline font-black text-blue-900">Recommended Selection</AccordionTrigger>
                 <AccordionContent>
-                  <div className="space-y-3">
+                  <div className="space-y-4 pb-4">
                     {nutritionAnalysis.recommendedFoods.map((food, index) => (
-                      <div key={index} className="p-3 bg-white rounded-lg border">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h6 className="font-semibold">{food.productName}</h6>
-                            <p className="text-sm text-blue-600">{food.brand}</p>
+                      <div key={index} className="p-4 bg-white rounded-xl border border-blue-50 shadow-sm flex flex-col sm:flex-row justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h6 className="font-black text-base text-blue-900">{food.productName}</h6>
+                            <Badge className="bg-blue-100 text-blue-700 text-[9px] uppercase font-black tracking-widest hover:bg-blue-100 border-none">{food.brand}</Badge>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium">{food.dailyAmount}</p>
-                            <p className="text-xs text-gray-500">{food.caloriesPerServing} cal/serving</p>
+                          <p className="text-xs font-medium text-gray-600 leading-relaxed mb-3">{food.reasons}</p>
+                          <div className="flex gap-4">
+                            <div className="px-2 py-1 bg-muted/40 rounded-lg text-[10px] font-bold">Protein: {food.proteinContent}</div>
+                            <div className="px-2 py-1 bg-muted/40 rounded-lg text-[10px] font-bold">Fat: {food.fatContent}</div>
                           </div>
                         </div>
-                        <p className="text-sm text-gray-700">{food.reasons}</p>
-                        <div className="flex gap-4 mt-2 text-xs text-gray-600">
-                          <span>Protein: {food.proteinContent}</span>
-                          <span>Fat: {food.fatContent}</span>
+                        <div className="sm:text-right flex flex-col justify-center bg-blue-50/50 p-3 rounded-xl min-w-[120px]">
+                          <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Daily Qty</p>
+                          <p className="text-base font-black text-blue-900">{food.dailyAmount}</p>
+                          <p className="text-[10px] font-bold text-blue-700/60">{food.caloriesPerServing} cal / svg</p>
                         </div>
                       </div>
                     ))}
@@ -520,31 +553,37 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
                 </AccordionContent>
               </AccordionItem>
               
-              <AccordionItem value="macronutrients">
-                <AccordionTrigger>Detailed Macronutrients</AccordionTrigger>
+              <AccordionItem value="macronutrients" className="border border-blue-100 rounded-2xl bg-white/50 overflow-hidden px-4">
+                <AccordionTrigger className="hover:no-underline font-black text-blue-900">Optimal Sources</AccordionTrigger>
                 <AccordionContent>
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <div className="bg-white p-4 rounded-lg border">
-                      <h6 className="font-semibold mb-2">Protein Sources</h6>
-                      <ul className="text-sm space-y-1">
+                  <div className="grid gap-4 md:grid-cols-3 pb-4">
+                    <div className="bg-white p-4 rounded-xl border border-blue-50">
+                      <h6 className="text-[10px] font-black uppercase tracking-widest text-[#ff6b4a] mb-3">Proteins</h6>
+                      <ul className="space-y-2">
                         {nutritionAnalysis.protein.sources.map((source, index) => (
-                          <li key={index}>• {source}</li>
+                          <li key={index} className="text-xs font-bold flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-[#ff6b4a]" /> {source}
+                          </li>
                         ))}
                       </ul>
                     </div>
-                    <div className="bg-white p-4 rounded-lg border">
-                      <h6 className="font-semibold mb-2">Fat Sources</h6>
-                      <ul className="text-sm space-y-1">
+                    <div className="bg-white p-4 rounded-xl border border-blue-50">
+                      <h6 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-3">Fats</h6>
+                      <ul className="space-y-2">
                         {nutritionAnalysis.fats.sources.map((source, index) => (
-                          <li key={index}>• {source}</li>
+                          <li key={index} className="text-xs font-bold flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-emerald-500" /> {source}
+                          </li>
                         ))}
                       </ul>
                     </div>
-                    <div className="bg-white p-4 rounded-lg border">
-                      <h6 className="font-semibold mb-2">Carbohydrate Sources</h6>
-                      <ul className="text-sm space-y-1">
+                    <div className="bg-white p-4 rounded-xl border border-blue-50">
+                      <h6 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-3">Carbs</h6>
+                      <ul className="space-y-2">
                         {nutritionAnalysis.carbohydrates.sources.map((source, index) => (
-                          <li key={index}>• {source}</li>
+                          <li key={index} className="text-xs font-bold flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-blue-500" /> {source}
+                          </li>
                         ))}
                       </ul>
                     </div>
@@ -552,43 +591,49 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
                 </AccordionContent>
               </AccordionItem>
               
-              <AccordionItem value="feeding-schedule">
-                <AccordionTrigger>Feeding Schedule & Notes</AccordionTrigger>
+              <AccordionItem value="feeding-schedule" className="border border-blue-100 rounded-2xl bg-white/50 overflow-hidden px-4">
+                <AccordionTrigger className="hover:no-underline font-black text-blue-900">Feeding Strategy</AccordionTrigger>
                 <AccordionContent>
-                  <div className="space-y-4">
-                    <div className="bg-white p-4 rounded-lg border">
-                      <h6 className="font-semibold mb-2">Feeding Schedule</h6>
-                      <p className="text-sm">{nutritionAnalysis.feedingSchedule}</p>
+                  <div className="space-y-4 pb-4">
+                    <div className="bg-white p-5 rounded-xl border border-blue-50">
+                      <h6 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-2">Protocol</h6>
+                      <p className="text-xs font-medium leading-relaxed">{nutritionAnalysis.feedingSchedule}</p>
                     </div>
                     
                     {nutritionAnalysis.specialConsiderations && (
-                      <div className="bg-white p-4 rounded-lg border">
-                        <h6 className="font-semibold mb-2">Special Considerations</h6>
-                        <p className="text-sm">{nutritionAnalysis.specialConsiderations}</p>
+                      <div className="bg-white p-5 rounded-xl border border-blue-50">
+                        <h6 className="text-[10px] font-black uppercase tracking-widest text-violet-600 mb-2">Considerations</h6>
+                        <p className="text-xs font-medium leading-relaxed">{nutritionAnalysis.specialConsiderations}</p>
                       </div>
                     )}
                     
-                    {nutritionAnalysis.supplementRecommendations.length > 0 && (
-                      <div className="bg-white p-4 rounded-lg border">
-                        <h6 className="font-semibold mb-2">Supplement Recommendations</h6>
-                        <ul className="text-sm space-y-1">
-                          {nutritionAnalysis.supplementRecommendations.map((supplement, index) => (
-                            <li key={index}>• {supplement}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    
-                    {nutritionAnalysis.warningFoods.length > 0 && (
-                      <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                        <h6 className="font-semibold mb-2 text-red-800">Foods to Avoid</h6>
-                        <ul className="text-sm space-y-1 text-red-700">
-                          {nutritionAnalysis.warningFoods.map((food, index) => (
-                            <li key={index}>• {food}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {nutritionAnalysis.supplementRecommendations.length > 0 && (
+                          <div className="bg-emerald-50/50 p-5 rounded-xl border border-emerald-100">
+                            <h6 className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-3">Supplements</h6>
+                            <ul className="space-y-2">
+                              {nutritionAnalysis.supplementRecommendations.map((supplement, index) => (
+                                <li key={index} className="text-xs font-bold text-emerald-800 flex items-start gap-2">
+                                  <span className="text-emerald-400">•</span> {supplement}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {nutritionAnalysis.warningFoods.length > 0 && (
+                          <div className="bg-red-50 p-5 rounded-xl border border-red-100">
+                            <h6 className="text-[10px] font-black uppercase tracking-widest text-red-700 mb-3">Health Hazards</h6>
+                            <ul className="space-y-2">
+                              {nutritionAnalysis.warningFoods.map((food, index) => (
+                                <li key={index} className="text-xs font-bold text-red-800 flex items-start gap-2">
+                                  <span className="text-red-400">•</span> {food}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -597,77 +642,70 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
         </Card>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-8 md:grid-cols-2">
         {/* Nutritional Information */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center mb-4">
-              <Apple className="w-6 h-6 mr-3 text-green-600" />
-              <h4 className="text-lg font-semibold">Nutritional Needs</h4>
+        <Card className="border border-black/[0.04] shadow-sm rounded-3xl overflow-hidden bg-white">
+          <CardContent className="p-8">
+            <div className="flex items-center gap-4 mb-8">
+               <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <Apple className="w-6 h-6" />
+              </div>
+              <h4 className="text-xl font-black tracking-tight">Standard Profile</h4>
             </div>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm font-medium">Daily Calories:</span>
-                <span className="text-sm">{nutritionalInfo.dailyCalories}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium">Protein Needs:</span>
-                <span className="text-sm">{nutritionalInfo.proteinNeeds}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium">Feeding Frequency:</span>
-                <span className="text-sm">{nutritionalInfo.feedingFrequency}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium">Special Diet:</span>
-                <span className="text-sm">{nutritionalInfo.specialDiet}</span>
-              </div>
+            <div className="space-y-4">
+              {[
+                { label: "Daily Target", value: nutritionalInfo.dailyCalories, icon: "🔥" },
+                { label: "Essential Protein", value: nutritionalInfo.proteinNeeds, icon: "🥩" },
+                { label: "Cycle", value: nutritionalInfo.feedingFrequency, icon: "🕒" },
+                { label: "Dietary Flags", value: nutritionalInfo.specialDiet, icon: "⚠️" }
+              ].map((item, i) => (
+                <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-black/[0.02] border border-black/[0.02]">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{item.icon}</span>
+                    <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">{item.label}</span>
+                  </div>
+                  <span className="text-sm font-black text-right max-w-[150px] leading-tight">{item.value}</span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
 
         {/* Food Recommendations */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center mb-4">
-              <Cookie className="w-6 h-6 mr-3 text-orange-600" />
-              <h4 className="text-lg font-semibold">Recommended Foods</h4>
+        <Card className="border border-black/[0.04] shadow-sm rounded-3xl overflow-hidden bg-white">
+          <CardContent className="p-8">
+            <div className="flex items-center gap-4 mb-3">
+               <div className="w-12 h-12 rounded-2xl bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20">
+                <Cookie className="w-6 h-6" />
+              </div>
+              <h4 className="text-xl font-black tracking-tight">Top Formula Picks</h4>
             </div>
-            <ScrollArea className="h-80">
+            <ScrollArea className="h-[500px] -mx-2 px-2">
               <div className="space-y-4">
                 {formatFoodRecommendations(pet).map((food, index) => (
-                  <div key={index} className="p-3 border rounded-lg bg-gray-50">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <h5 className="font-semibold text-sm text-gray-900">{food.productName}</h5>
-                        <p className="text-xs text-blue-600 font-medium">{food.brand}</p>
+                  <div key={index} className="p-5 border border-black/[0.04] rounded-2xl bg-black/[0.01] hover:bg-white hover:shadow-md transition-all">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h5 className="font-black text-base text-gray-900 mb-0.5">{food.productName}</h5>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">{food.brand}</p>
                       </div>
-                      <div className="text-xs text-gray-500">{food.category}</div>
+                      <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-black/[0.1]">{food.category}</Badge>
                     </div>
                     
-                    <div className="mb-2">
-                      <p className="text-xs text-gray-600 mb-1">
-                        <strong>Key Ingredients:</strong> {food.activeIngredients.join(", ")}
-                      </p>
-                    </div>
-                    
-                    <div className="mb-2">
-                      <p className="text-xs text-green-700">
-                        <strong>Benefits:</strong> {food.benefits}
-                      </p>
-                    </div>
-                    
-                    {food.feedingGuide && (
-                      <div className="text-xs text-gray-600">
-                        <strong>Feeding Guide:</strong> {food.feedingGuide}
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-2">
+                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1" />
+                         <p className="text-xs font-medium text-emerald-800 leading-relaxed">
+                            {food.benefits}
+                         </p>
                       </div>
-                    )}
-                    
-                    {food.specialNotes && (
-                      <div className="mt-2 text-xs text-amber-700 bg-amber-50 p-2 rounded">
-                        <strong>Note:</strong> {food.specialNotes}
-                      </div>
-                    )}
+                      
+                      {food.feedingGuide && (
+                        <div className="bg-white/50 p-2 rounded-lg border border-black/[0.02] text-[10px] font-bold text-gray-500">
+                          <span className="uppercase tracking-widest opacity-60 mr-1">Guide:</span> {food.feedingGuide}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -712,9 +750,9 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
                           <Clock className="w-4 h-4 text-gray-500" />
                           <div>
                             <div className="font-medium">{reminder.title}</div>
-                            <div className="text-sm text-gray-500">
-                              {reminder.dueTime ? format(parseISO(reminder.dueTime), 'HH:mm') : 'No time set'}
-                            </div>
+                             <div className="text-sm text-gray-500">
+                               {reminder.dueTime || 'No time set'}
+                             </div>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">

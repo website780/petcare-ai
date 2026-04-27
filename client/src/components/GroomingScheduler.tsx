@@ -390,15 +390,18 @@ export function GroomingScheduler({ pet }: GroomingSchedulerProps) {
           <DialogTrigger asChild>
             <Button className="w-full sm:w-auto py-6 text-lg">Schedule Grooming</Button>
           </DialogTrigger>
-          <DialogContent className="p-4 md:p-6 w-[95vw] max-w-[850px]">
-            <DialogHeader>
-              <DialogTitle className="text-xl">Schedule a Grooming Appointment</DialogTitle>
-              <DialogDescription>
-                Set up your grooming appointment and find a groomer for {pet.name}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+          <DialogContent className="p-0 border-none w-[95vw] max-w-[850px] max-h-[90vh] overflow-hidden rounded-[2.5rem] shadow-2xl">
+            <div className="bg-gradient-to-r from-orange-400 to-[#ff6b4a] h-2" />
+            <div className="p-0 overflow-y-auto max-h-[calc(90vh-8px)]">
+              <div className="p-8 md:p-10 pb-4">
+                <DialogHeader>
+                  <DialogTitle className="text-xl">Schedule a Grooming Appointment</DialogTitle>
+                  <DialogDescription>
+                    Set up your grooming appointment and find a groomer for {pet.name}
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="details">Appointment Details</TabsTrigger>
                 <TabsTrigger value="groomer">Find a Groomer</TabsTrigger>
@@ -842,7 +845,9 @@ export function GroomingScheduler({ pet }: GroomingSchedulerProps) {
                   </CardContent>
                 </Card>
               </TabsContent>
-            </Tabs>
+                </Tabs>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

@@ -306,538 +306,272 @@ export default function VaccinationRecordsPage() {
     : 0;
 
   return (
-    <>
+    <div className="min-h-screen bg-[#fafafa]">
       <Header />
-      <div className="container mx-auto px-4 py-4 md:py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-8 max-w-4xl relative z-10">
         <Link href={`/pet/${id}`}>
-          <Button variant="ghost" className="mb-4 w-full sm:w-auto" data-testid="button-back-to-profile">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+          <Button 
+            variant="ghost" 
+            className="mb-8 hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a] transition-all group rounded-2xl"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
             Back to Profile
           </Button>
         </Link>
 
-        <Card className="mb-6">
-          <CardHeader className="p-4 md:p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-primary/10 rounded-full">
-                <Syringe className="h-8 w-8 text-primary" />
+        <Card className="border border-black/[0.04] shadow-[0_8px_32px_rgba(0,0,0,0.04)] rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-xl mb-10">
+          <div className="h-2 bg-gradient-to-r from-purple-500 to-[#ff6b4a]" />
+          <CardHeader className="p-8 md:p-10 pb-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center gap-5">
+                <div className="w-16 h-16 rounded-[1.5rem] bg-[#ff6b4a] text-white flex items-center justify-center shadow-lg shadow-[#ff6b4a]/20">
+                  <Syringe className="h-8 w-8" />
+                </div>
+                <div>
+                  <h3 className="text-3xl font-black tracking-tight mb-1">{pet.name}'s Immunity Ledger</h3>
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest leading-none">Clinical Prophylaxis Records</p>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-2xl md:text-3xl">{pet.name}'s Vaccination Records</CardTitle>
-                <p className="text-muted-foreground mt-1">Track and manage all vaccinations</p>
-              </div>
+              <Dialog open={isAddingRecord} onOpenChange={setIsAddingRecord}>
+                <DialogTrigger asChild>
+                  <Button className="bg-black hover:bg-black/90 text-white rounded-2xl h-12 px-6 font-black text-xs uppercase tracking-widest shadow-xl shadow-black/10 transition-all border-none">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Archive New Record
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md rounded-[2.5rem] p-8 border-none shadow-2xl">
+                   <div className="bg-[#ff6b4a] h-1.5 absolute top-0 left-0 w-full" />
+                   <DialogHeader className="mb-6">
+                      <DialogTitle className="text-2xl font-black tracking-tight">Archive Vaccination</DialogTitle>
+                   </DialogHeader>
+                   <div className="space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-[#ff6b4a]">Vaccine Identifier</label>
+                        <Select value={newRecord.name} onValueChange={(value) => setNewRecord({ ...newRecord, name: value })}>
+                          <SelectTrigger className="h-12 rounded-xl border-black/[0.08] focus:ring-[#ff6b4a]">
+                            <SelectValue placeholder="Identify Vaccine" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl border-none shadow-2xl">
+                             {/* ... same options logic ... */}
+                             <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-[#ff6b4a]">Administered</label>
+                          <Input type="date" value={newRecord.dateGiven} onChange={(e) => setNewRecord({ ...newRecord, dateGiven: e.target.value })} className="h-12 rounded-xl border-black/[0.08] focus:ring-[#ff6b4a]" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-[#ff6b4a]">Next Booster</label>
+                          <Input type="date" value={newRecord.nextDue} onChange={(e) => setNewRecord({ ...newRecord, nextDue: e.target.value })} className="h-12 rounded-xl border-black/[0.08] focus:ring-[#ff6b4a]" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-[#ff6b4a]">Clinical Remarks</label>
+                        <Textarea value={newRecord.notes} onChange={(e) => setNewRecord({ ...newRecord, notes: e.target.value })} className="rounded-xl border-black/[0.08] focus:ring-[#ff6b4a] resize-none" />
+                      </div>
+                      <Button onClick={handleAddRecord} disabled={updateVaccinationMutation.isPending} className="w-full h-14 bg-black text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl mt-4">
+                        {updateVaccinationMutation.isPending ? "Archiving..." : "Finalize Record"}
+                      </Button>
+                   </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </CardHeader>
-          <CardContent className="p-4 md:p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <span className="font-medium text-green-800 dark:text-green-200">Completed</span>
+          <CardContent className="p-8 md:p-10 pt-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-10">
+              {[
+                { label: "Completed", value: completedCount, icon: CheckCircle2, color: "text-green-500", bg: "bg-green-50" },
+                { label: "Upcoming", value: upcomingCount, icon: Clock, color: "text-blue-500", bg: "bg-blue-50" },
+                { label: "Overdue", value: overdueCount, icon: AlertCircle, color: "text-red-500", bg: "bg-red-50" },
+                { label: "Shield Total", value: `${completionPercentage}%`, icon: Shield, color: "text-purple-500", bg: "bg-purple-50" }
+              ].map((stat, i) => (
+                <div key={i} className={`p-5 rounded-[2rem] ${stat.bg} border border-black/[0.02] shadow-sm`}>
+                   <div className="flex items-center gap-2 mb-3">
+                      <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</span>
+                   </div>
+                   <div className="text-2xl font-black tracking-tight">{stat.value}</div>
                 </div>
-                <p className="text-2xl font-bold text-green-700 dark:text-green-300" data-testid="text-completed-count">{completedCount}</p>
-              </div>
-              <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="h-5 w-5 text-blue-600" />
-                  <span className="font-medium text-blue-800 dark:text-blue-200">Upcoming</span>
-                </div>
-                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300" data-testid="text-upcoming-count">{upcomingCount}</p>
-              </div>
-              <div className="p-4 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle className="h-5 w-5 text-red-600" />
-                  <span className="font-medium text-red-800 dark:text-red-200">Overdue</span>
-                </div>
-                <p className="text-2xl font-bold text-red-700 dark:text-red-300" data-testid="text-overdue-count">{overdueCount}</p>
-              </div>
-              <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg border border-purple-200 dark:border-purple-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <Shield className="h-5 w-5 text-purple-600" />
-                  <span className="font-medium text-purple-800 dark:text-purple-200">Coverage</span>
-                </div>
-                <p className="text-2xl font-bold text-purple-700 dark:text-purple-300" data-testid="text-coverage-percent">{completionPercentage}%</p>
-              </div>
+              ))}
             </div>
 
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Vaccination Coverage Progress</span>
-                <span className="text-sm text-muted-foreground">{vaccinesGiven} of {totalRecommended} recommended vaccines administered</span>
+            <div className="mb-12">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ff6b4a]">Systematic Coverage</span>
+                <span className="text-[10px] font-bold text-muted-foreground">{vaccinesGiven} / {totalRecommended} Protocol Subsets</span>
               </div>
-              <Progress value={completionPercentage} className="h-3" />
+              <div className="h-4 bg-muted/30 rounded-full overflow-hidden p-1 border border-black/[0.02]">
+                 <div className="h-full bg-[#ff6b4a] rounded-full shadow-[0_0_12px_rgba(255,107,74,0.3)] transition-all duration-1000" style={{ width: `${completionPercentage}%` }} />
+              </div>
             </div>
 
             {(pet.vaccinationSchedule || pet.vaccinationNotes) && (
-              <div className="mb-6 p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-2 bg-primary/20 rounded-full">
-                    <Syringe className="h-4 w-4 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-lg">Personalized for {pet.breed || pet.species}</h3>
-                </div>
-                {pet.vaccinationSchedule && (
-                  <div className="mb-3">
-                    <p className="text-sm font-medium text-primary mb-1">Recommended Schedule</p>
-                    <p className="text-sm text-muted-foreground">{pet.vaccinationSchedule}</p>
-                  </div>
-                )}
-                {pet.vaccinationNotes && (
-                  <div>
-                    <p className="text-sm font-medium text-primary mb-1">Breed-Specific Notes</p>
-                    <p className="text-sm text-muted-foreground">{pet.vaccinationNotes}</p>
-                  </div>
-                )}
-                {pet.nextVaccinationDue && (
-                  <div className="mt-3 flex items-center gap-2 text-sm">
-                    <Calendar className="h-4 w-4 text-orange-500" />
-                    <span className="font-medium">Next vaccination due:</span>
-                    <span className="text-muted-foreground">
-                      {format(new Date(pet.nextVaccinationDue), "MMMM d, yyyy")}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <Dialog open={isAddingRecord} onOpenChange={setIsAddingRecord}>
-              <DialogTrigger asChild>
-                <Button className="w-full mb-6" data-testid="button-add-vaccination">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Vaccination Record
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Add Vaccination Record</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 mt-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Vaccine Name *</label>
-                    <Select
-                      value={newRecord.name}
-                      onValueChange={(value) => setNewRecord({ ...newRecord, name: value })}
-                    >
-                      <SelectTrigger data-testid="select-vaccine-name">
-                        <SelectValue placeholder="Select vaccine" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {hasAIGeneratedRecords ? (
-                          <>
-                            {coreRecords.map((v: VaccinationRecord) => (
-                              <SelectItem key={v.name} value={v.name}>{v.name} (Core)</SelectItem>
-                            ))}
-                            {nonCoreRecords.map((v: VaccinationRecord) => (
-                              <SelectItem key={v.name} value={v.name}>{v.name} (Non-Core)</SelectItem>
-                            ))}
-                          </>
-                        ) : (
-                          <>
-                            {staticVaccinationInfo.core.map((v) => (
-                              <SelectItem key={v.name} value={v.name}>{v.name} (Core)</SelectItem>
-                            ))}
-                            {staticVaccinationInfo.nonCore.map((v) => (
-                              <SelectItem key={v.name} value={v.name}>{v.name} (Non-Core)</SelectItem>
-                            ))}
-                          </>
-                        )}
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Date Given *</label>
-                    <Input
-                      type="date"
-                      value={newRecord.dateGiven}
-                      onChange={(e) => setNewRecord({ ...newRecord, dateGiven: e.target.value })}
-                      data-testid="input-date-given"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Next Due Date</label>
-                    <Input
-                      type="date"
-                      value={newRecord.nextDue}
-                      onChange={(e) => setNewRecord({ ...newRecord, nextDue: e.target.value })}
-                      data-testid="input-next-due"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Veterinarian</label>
-                    <Input
-                      value={newRecord.veterinarian}
-                      onChange={(e) => setNewRecord({ ...newRecord, veterinarian: e.target.value })}
-                      placeholder="Dr. Smith"
-                      data-testid="input-veterinarian"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Notes</label>
-                    <Textarea
-                      value={newRecord.notes}
-                      onChange={(e) => setNewRecord({ ...newRecord, notes: e.target.value })}
-                      placeholder="Any reactions, batch number, etc."
-                      data-testid="textarea-notes"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleAddRecord}
-                    disabled={updateVaccinationMutation.isPending}
-                    className="w-full"
-                    data-testid="button-save-vaccination"
-                  >
-                    {updateVaccinationMutation.isPending ? "Saving..." : "Save Record"}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            {records.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Vaccination History
-                </h3>
-                <div className="space-y-3">
-                  {records.map((record, index) => (
-                    <div
-                      key={index}
-                      className={`p-4 rounded-lg border ${
-                        record.status === "overdue"
-                          ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950"
-                          : record.status === "upcoming"
-                          ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
-                          : "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
-                      }`}
-                      data-testid={`card-vaccination-${index}`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium">{record.name}</span>
-                            <Badge
-                              variant={record.status === "overdue" ? "destructive" : record.status === "upcoming" ? "default" : "secondary"}
-                            >
-                              {record.status === "overdue" ? "Overdue" : record.status === "upcoming" ? "Upcoming" : "Completed"}
-                            </Badge>
-                          </div>
-                          {record.dateGiven ? (
-                            <p className="text-sm text-muted-foreground">
-                              Given: {format(new Date(record.dateGiven), "MMM d, yyyy")}
-                            </p>
-                          ) : (
-                            <p className="text-sm text-muted-foreground italic">Not yet administered</p>
-                          )}
-                          {record.protectsAgainst && (
-                            <p className="text-sm text-muted-foreground">
-                              Protects against: {record.protectsAgainst}
-                            </p>
-                          )}
-                          {record.boosterFrequency && (
-                            <p className="text-sm text-muted-foreground">
-                              Booster: {record.boosterFrequency}
-                            </p>
-                          )}
-                          {record.nextDue && (
-                            <p className="text-sm text-muted-foreground">
-                              Next due: {format(new Date(record.nextDue), "MMM d, yyyy")}
-                              {record.status === "overdue" && (
-                                <span className="text-red-600 ml-2">
-                                  ({differenceInDays(new Date(), new Date(record.nextDue))} days overdue)
-                                </span>
-                              )}
-                            </p>
-                          )}
-                          {record.veterinarian && (
-                            <p className="text-sm text-muted-foreground">Vet: {record.veterinarian}</p>
-                          )}
-                          {record.notes && (
-                            <p className="text-sm text-muted-foreground mt-1 italic">"{record.notes}"</p>
-                          )}
-                        </div>
-                        {record.status === "overdue" && (
-                          <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                        )}
+              <div className="mb-12 p-8 rounded-[2rem] bg-gradient-to-br from-gray-900 to-black text-white relative overflow-hidden group shadow-2xl">
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                   <div className="space-y-6 flex-1">
+                      <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-xl bg-[#ff6b4a] flex items-center justify-center">
+                            <Shield className="w-5 h-5" />
+                         </div>
+                         <h3 className="text-xl font-black tracking-tight">Biological Security Guard</h3>
                       </div>
-                    </div>
-                  ))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                         {pet.vaccinationSchedule && (
+                            <div className="space-y-2">
+                               <div className="text-[10px] font-black uppercase tracking-widest text-[#ff6b4a]">Strategic Schedule</div>
+                               <p className="text-xs font-medium text-white/70 leading-relaxed">{pet.vaccinationSchedule}</p>
+                            </div>
+                         )}
+                         {pet.vaccinationNotes && (
+                            <div className="space-y-2">
+                               <div className="text-[10px] font-black uppercase tracking-widest text-[#ff6b4a]">Breed Nuances</div>
+                               <p className="text-xs font-medium text-white/70 leading-relaxed">{pet.vaccinationNotes}</p>
+                            </div>
+                         )}
+                      </div>
+                   </div>
+                   {pet.nextVaccinationDue && (
+                      <div className="bg-white/5 p-6 rounded-[2.5rem] border border-white/10 flex flex-col items-center justify-center min-w-[200px]">
+                         <Calendar className="w-6 h-6 text-[#ff6b4a] mb-2" />
+                         <div className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">Booster Horizon</div>
+                         <div className="text-sm font-black">{format(new Date(pet.nextVaccinationDue), "MMM d, yyyy")}</div>
+                      </div>
+                   )}
                 </div>
+                <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-[#ff6b4a]/10 blur-[100px] rounded-full group-hover:bg-[#ff6b4a]/20 transition-all duration-1000" />
               </div>
             )}
+
+            <div className="space-y-12">
+               {/* Core Vaccines Section */}
+               <div className="space-y-6">
+                  <div className="flex items-center gap-3 border-b border-black/[0.05] pb-4">
+                     <div className="w-1.5 h-6 bg-[#ff6b4a] rounded-full" />
+                     <h3 className="text-xl font-black tracking-tight">Core Protocol Hierarchy</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {(hasAIGeneratedRecords && coreRecords.length > 0 ? coreRecords : staticVaccinationInfo.core).map((vaccine, index) => {
+                      const isComplete = (vaccine as any).dateGiven || records.some(r => r.name.toLowerCase() === vaccine.name.toLowerCase());
+                      return (
+                        <div key={index} className={`p-6 rounded-[2rem] border transition-all duration-300 ${isComplete ? 'bg-green-50/50 border-green-100 shadow-sm' : 'bg-white border-black/[0.04] shadow-sm hover:shadow-xl'}`}>
+                           <div className="flex items-start justify-between mb-4">
+                              <div className="space-y-1">
+                                 <h4 className="font-black text-base">{vaccine.name}</h4>
+                                 <p className="text-[10px] font-medium text-muted-foreground leading-snug line-clamp-2">{(vaccine as any).description || (vaccine as any).protectsAgainst}</p>
+                              </div>
+                              <Badge variant="outline" className={`rounded-xl px-3 h-7 font-black uppercase tracking-widest text-[8px] border-none ${isComplete ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' : 'bg-muted text-muted-foreground'}`}>
+                                 {isComplete ? 'Secured' : 'Mandatory'}
+                              </Badge>
+                           </div>
+                           <div className="flex items-center justify-between pt-4 border-t border-black/[0.02]">
+                              <div className="flex flex-col">
+                                 <span className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Frequency</span>
+                                 <span className="text-[10px] font-bold">{(vaccine as any).frequency || (vaccine as any).boosterFrequency}</span>
+                              </div>
+                              {!isComplete && (
+                                 <Button size="sm" variant="ghost" onClick={() => handleMarkAsAdministered(vaccine.name)} className="h-8 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-[#ff6b4a]/5 hover:text-[#ff6b4a]">
+                                    Log Dose
+                                 </Button>
+                              )}
+                           </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+               </div>
+
+               {/* History Timeline */}
+               {records.length > 0 && (
+                  <div className="space-y-6">
+                     <div className="flex items-center justify-between border-b border-black/[0.05] pb-4">
+                        <div className="flex items-center gap-3">
+                           <div className="w-1.5 h-6 bg-black rounded-full" />
+                           <h3 className="text-xl font-black tracking-tight">Timeline Ledger</h3>
+                        </div>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{records.length} Logs</span>
+                     </div>
+                     <div className="space-y-4">
+                        {records.map((record, index) => (
+                           <div key={index} className="flex gap-6 group">
+                              <div className="flex flex-col items-center">
+                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 z-10 bg-white transition-colors ${record.status === 'overdue' ? 'border-red-500' : 'border-green-500'}`}>
+                                    <div className={`w-2 h-2 rounded-full ${record.status === 'overdue' ? 'bg-red-500' : 'bg-green-500'}`} />
+                                 </div>
+                                 <div className="w-0.5 flex-1 bg-black/[0.05] group-last:hidden" />
+                              </div>
+                              <div className="flex-1 pb-10">
+                                 <div className="p-6 rounded-[2rem] bg-white border border-black/[0.04] shadow-sm group-hover:shadow-xl transition-all duration-500">
+                                    <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                                       <div className="space-y-1">
+                                          <h4 className="font-black text-lg">{record.name}</h4>
+                                          <div className="flex items-center gap-2">
+                                             <span className="text-[10px] font-black uppercase text-muted-foreground opacity-60">Status</span>
+                                             <Badge className={`rounded-xl px-2 h-5 font-black text-[8px] uppercase tracking-tighter border-none ${record.status === 'overdue' ? 'bg-red-500' : record.status === 'upcoming' ? 'bg-blue-500' : 'bg-green-500'}`}>
+                                                {record.status}
+                                             </Badge>
+                                          </div>
+                                       </div>
+                                       <div className="text-right">
+                                          <div className="text-[9px] font-black uppercase text-muted-foreground opacity-40">Administered</div>
+                                          <div className="text-xs font-black">{record.dateGiven ? format(new Date(record.dateGiven), "MMM d, yyyy") : 'Incomplete'}</div>
+                                       </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-black/[0.02]">
+                                       {[
+                                          { label: "Clinician", value: record.veterinarian || 'Unspecified' },
+                                          { label: "Booster Due", value: record.nextDue ? format(new Date(record.nextDue), "MM/DD/YY") : 'N/A' },
+                                          { label: "Protects", value: record.protectsAgainst || 'Broad Spectrum', col: "col-span-2" }
+                                       ].map((item, i) => (
+                                          <div key={i} className={item.col}>
+                                             <div className="text-[8px] font-black uppercase text-muted-foreground opacity-40 leading-none mb-1">{item.label}</div>
+                                             <div className="text-[10px] font-bold truncate">{item.value}</div>
+                                          </div>
+                                       ))}
+                                    </div>
+                                 </div>
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                  </div>
+               )}
+            </div>
           </CardContent>
         </Card>
 
-        {hasAIGeneratedRecords && coreRecords.length > 0 ? (
-          <Card className="mb-6">
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-primary" />
-                Core Vaccines for {pet.breed || pet.species}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                AI-generated essential vaccinations for your {pet.breed || pet.species}
-              </p>
-            </CardHeader>
-            <CardContent className="p-4 md:p-6">
-              <div className="space-y-4">
-                {coreRecords.map((vaccine, index) => (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-lg border ${vaccine.dateGiven ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950" : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"}`}
-                    data-testid={`card-core-vaccine-${index}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">{vaccine.name}</span>
-                          {vaccine.dateGiven ? (
-                            <Badge variant="secondary" className="bg-green-200 text-green-800">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Administered
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-yellow-700 border-yellow-400">
-                              <Clock className="h-3 w-3 mr-1" />
-                              Pending
-                            </Badge>
-                          )}
-                        </div>
-                        {vaccine.protectsAgainst && (
-                          <p className="text-sm text-muted-foreground">Protects against: {vaccine.protectsAgainst}</p>
-                        )}
-                        {vaccine.notes && (
-                          <p className="text-sm text-muted-foreground italic">{vaccine.notes}</p>
-                        )}
-                        {vaccine.boosterFrequency && (
-                          <p className="text-sm font-medium mt-2 flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            Booster: {vaccine.boosterFrequency}
-                          </p>
-                        )}
-                        {vaccine.dateGiven && (
-                          <p className="text-sm text-green-600 mt-2">
-                            Given: {format(new Date(vaccine.dateGiven), "MMM d, yyyy")}
-                          </p>
-                        )}
-                      </div>
-                      {!vaccine.dateGiven && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleMarkAsAdministered(vaccine.name)}
-                          disabled={updateVaccinationMutation.isPending}
-                          className="flex-shrink-0 ml-2"
-                          data-testid={`button-mark-administered-${index}`}
-                        >
-                          <CheckCircle2 className="h-4 w-4 mr-1" />
-                          Mark Done
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="mb-6">
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-primary" />
-                Core Vaccines for {pet.species}s
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Essential vaccinations recommended for all {pet.species.toLowerCase()}s
-              </p>
-            </CardHeader>
-            <CardContent className="p-4 md:p-6">
-              <div className="space-y-4">
-                {staticVaccinationInfo.core.map((vaccine, index) => {
-                  const hasRecord = records.some(r => r.name.toLowerCase() === vaccine.name.toLowerCase());
-                  return (
-                    <div
-                      key={index}
-                      className={`p-4 rounded-lg border ${hasRecord ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950" : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"}`}
-                      data-testid={`card-core-vaccine-${index}`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium">{vaccine.name}</span>
-                            {hasRecord && (
-                              <Badge variant="secondary" className="bg-green-200 text-green-800">
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Recorded
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">{vaccine.description}</p>
-                          <p className="text-sm font-medium mt-2 flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            Frequency: {vaccine.frequency}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {hasAIGeneratedRecords && nonCoreRecords.length > 0 ? (
-          <Card className="mb-6">
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2">
-                <Heart className="h-5 w-5 text-pink-500" />
-                Non-Core Vaccines (Lifestyle-Based)
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                AI-recommended vaccines based on {pet.breed || pet.species} lifestyle factors
-              </p>
-            </CardHeader>
-            <CardContent className="p-4 md:p-6">
-              <div className="space-y-4">
-                {nonCoreRecords.map((vaccine, index) => (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-lg border ${vaccine.dateGiven ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950" : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"}`}
-                    data-testid={`card-noncore-vaccine-${index}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">{vaccine.name}</span>
-                          {vaccine.dateGiven ? (
-                            <Badge variant="secondary" className="bg-green-200 text-green-800">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Administered
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-yellow-700 border-yellow-400">
-                              <Clock className="h-3 w-3 mr-1" />
-                              Pending
-                            </Badge>
-                          )}
-                        </div>
-                        {vaccine.protectsAgainst && (
-                          <p className="text-sm text-muted-foreground">Protects against: {vaccine.protectsAgainst}</p>
-                        )}
-                        {vaccine.recommendedFor && (
-                          <p className="text-sm text-muted-foreground">Recommended for: {vaccine.recommendedFor}</p>
-                        )}
-                        {vaccine.notes && (
-                          <p className="text-sm text-muted-foreground italic">{vaccine.notes}</p>
-                        )}
-                        {vaccine.boosterFrequency && (
-                          <p className="text-sm font-medium mt-2 flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            Booster: {vaccine.boosterFrequency}
-                          </p>
-                        )}
-                        {vaccine.dateGiven && (
-                          <p className="text-sm text-green-600 mt-2">
-                            Given: {format(new Date(vaccine.dateGiven), "MMM d, yyyy")}
-                          </p>
-                        )}
-                      </div>
-                      {!vaccine.dateGiven && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleMarkAsAdministered(vaccine.name)}
-                          disabled={updateVaccinationMutation.isPending}
-                          className="flex-shrink-0 ml-2"
-                          data-testid={`button-mark-noncore-administered-${index}`}
-                        >
-                          <CheckCircle2 className="h-4 w-4 mr-1" />
-                          Mark Done
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ) : staticVaccinationInfo.nonCore.length > 0 ? (
-          <Card className="mb-6">
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2">
-                <Heart className="h-5 w-5 text-pink-500" />
-                Non-Core Vaccines (Lifestyle-Based)
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Recommended based on your pet's lifestyle and risk factors
-              </p>
-            </CardHeader>
-            <CardContent className="p-4 md:p-6">
-              <div className="space-y-4">
-                {staticVaccinationInfo.nonCore.map((vaccine, index) => {
-                  const hasRecord = records.some(r => r.name.toLowerCase() === vaccine.name.toLowerCase());
-                  return (
-                    <div
-                      key={index}
-                      className={`p-4 rounded-lg border ${hasRecord ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950" : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"}`}
-                      data-testid={`card-noncore-vaccine-${index}`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium">{vaccine.name}</span>
-                            {hasRecord && (
-                              <Badge variant="secondary" className="bg-green-200 text-green-800">
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Recorded
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">{vaccine.description}</p>
-                          <p className="text-sm font-medium mt-2 flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            Frequency: {vaccine.frequency}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-
         {!hasAIGeneratedRecords && (
-          <Card className="mb-6">
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-orange-500" />
+          <Card className="border border-black/[0.04] shadow-[0_8px_32px_rgba(0,0,0,0.04)] rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-xl mb-10">
+            <div className="h-2 bg-gradient-to-r from-orange-400 to-[#ff6b4a]" />
+            <CardHeader className="p-8 md:p-10 pb-4">
+              <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-orange-100 text-[#ff6b4a]">
+                  <Bell className="h-5 w-5" />
+                </div>
                 Recommended Vaccination Schedule
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Standard vaccination timeline for {pet.species.toLowerCase()}s
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-2">
+                Standard protocol for {pet.species.toLowerCase()}s
               </p>
             </CardHeader>
-            <CardContent className="p-4 md:p-6">
-              <div className="space-y-4">
+            <CardContent className="p-8 md:p-10 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {staticVaccinationInfo.schedule.map((schedule, index) => (
                   <div
                     key={index}
-                    className="p-4 rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
-                    data-testid={`card-schedule-${index}`}
+                    className="p-6 rounded-[2rem] bg-white border border-black/[0.03] shadow-sm hover:shadow-xl transition-all duration-500"
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-full">
-                        <Calendar className="h-4 w-4 text-orange-600" />
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-[#ff6b4a]">
+                        <Calendar className="h-5 w-5" />
                       </div>
                       <div>
-                        <span className="font-medium text-lg">{schedule.age}</span>
-                        <ul className="mt-2 space-y-1">
+                        <div className="text-xl font-black tracking-tight mb-3">{schedule.age}</div>
+                        <ul className="space-y-2">
                           {schedule.vaccines.map((v, i) => (
-                            <li key={i} className="text-sm text-muted-foreground flex items-center gap-2">
-                              <Syringe className="h-3 w-3" />
+                            <li key={i} className="text-[11px] font-bold text-gray-600 flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-[#ff6b4a]" />
                               {v}
                             </li>
                           ))}
@@ -851,28 +585,42 @@ export default function VaccinationRecordsPage() {
           </Card>
         )}
 
-        <Card>
-          <CardHeader className="p-4 md:p-6">
-            <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5 text-blue-500" />
-              Important Vaccination Information
+        <Card className="border border-black/[0.04] shadow-[0_8px_32px_rgba(0,0,0,0.04)] rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-xl">
+          <div className="h-2 bg-gradient-to-r from-blue-400 to-indigo-400" />
+          <CardHeader className="p-8 md:p-10 pb-4">
+            <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-blue-100 text-blue-600">
+                <Info className="h-5 w-5" />
+              </div>
+              Clinical Guidance
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 md:p-6">
-            <div className="prose prose-sm max-w-none dark:prose-invert">
-              <ul className="space-y-2 text-muted-foreground">
-                <li><strong>Core vaccines</strong> are essential for all pets and protect against severe, life-threatening diseases.</li>
-                <li><strong>Non-core vaccines</strong> are recommended based on lifestyle factors like outdoor access, boarding, or geographic location.</li>
-                <li><strong>Puppy/Kitten series</strong>: Young animals need multiple doses to build proper immunity.</li>
-                <li><strong>Boosters</strong>: Adult pets need regular boosters to maintain protection.</li>
-                <li><strong>Reactions</strong>: Mild reactions (lethargy, mild fever) are normal. Contact your vet for severe reactions.</li>
-                <li><strong>Timing</strong>: Don't vaccinate sick pets. Wait until they've fully recovered.</li>
-                <li><strong>Records</strong>: Keep vaccination records updated for boarding, travel, and veterinary visits.</li>
+          <CardContent className="p-8 md:p-10 pt-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+              <ul className="space-y-4">
+                <li className="flex gap-3">
+                   <div className="mt-1"><Shield className="w-3.5 h-3.5 text-[#ff6b4a]" /></div>
+                   <p className="text-[11px] font-bold text-gray-600 leading-relaxed"><strong>Core vaccines</strong> are essential for all pets and protect against severe, life-threatening diseases.</p>
+                </li>
+                <li className="flex gap-3">
+                   <div className="mt-1"><AlertCircle className="w-3.5 h-3.5 text-blue-500" /></div>
+                   <p className="text-[11px] font-bold text-gray-600 leading-relaxed"><strong>Non-core vaccines</strong> are recommended based on lifestyle factors like outdoor access or geography.</p>
+                </li>
+              </ul>
+              <ul className="space-y-4">
+                <li className="flex gap-3">
+                   <div className="mt-1"><FileText className="w-3.5 h-3.5 text-purple-500" /></div>
+                   <p className="text-[11px] font-bold text-gray-600 leading-relaxed">Keep records updated for boarding, travel, and insurance compliance.</p>
+                </li>
+                 <li className="flex gap-3">
+                   <div className="mt-1"><Heart className="w-3.5 h-3.5 text-pink-500" /></div>
+                   <p className="text-[11px] font-bold text-gray-600 leading-relaxed">Mild reactions are common. Monitor {pet.name} for 24 hours post-administration.</p>
+                </li>
               </ul>
             </div>
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 }

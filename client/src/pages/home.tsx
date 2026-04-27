@@ -5,7 +5,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, Loader2, Heart, LogOut, Sparkles, PawPrint, ArrowLeft } from "lucide-react";
+import { 
+  Upload, Loader2, Heart, LogOut, Sparkles, PawPrint, ArrowLeft, 
+  Camera, Stethoscope, Activity, HeartPulse, ShieldCheck, ChevronRight, Plus
+} from "lucide-react";
+import { motion } from "framer-motion";
 import { SiFacebook } from "react-icons/si";
 import { type Pet, type AnalyzeImageResponse, insertPetSchema } from "@shared/schema";
 import { useLocation } from "wouter";
@@ -185,43 +189,43 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
     }
   });
 
-const onDrop = async (acceptedFiles: File[]) => {
-    if (Number(user?.freeScanUsed || 0) >= 2) {
-      toast({
-        variant: "destructive",
-        title: "Scan limit reached",
-        description: "You have used your scans. Please unlock more to continue.",
-      });
-      return;
-    }
-
-    const file = acceptedFiles[0];
-    if (!file) return;
-
-    if (file.size > MAX_INITIAL_IMAGE_SIZE) {
-      toast({
-        variant: "destructive",
-        title: "Image too large",
-        description: "Please select an image under 20MB"
-      });
-      return;
-    }
-
-    // Convert file to Data URL reliably via Promise
-    const fileDataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(file);
-    });
-
-    // Immediately set UI preview
-    setImagePreview(fileDataUrl);
-
-    // Extract base64 part for the AI analysis
-    const base64 = fileDataUrl.split(",")[1];
-    
+  const onDrop = async (acceptedFiles: File[]) => {
     try {
+      if (Number(user?.freeScanUsed || 0) >= 2) {
+        toast({
+          variant: "destructive",
+          title: "Scan limit reached",
+          description: "You have used your scans. Please unlock more to continue.",
+        });
+        return;
+      }
+
+      const file = acceptedFiles[0];
+      if (!file) return;
+
+      if (file.size > MAX_INITIAL_IMAGE_SIZE) {
+        toast({
+          variant: "destructive",
+          title: "Image too large",
+          description: "Please select an image under 15MB"
+        });
+        return;
+      }
+
+      // Convert file to Data URL reliably via Promise
+      const fileDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+
+      // Immediately set UI preview
+      setImagePreview(fileDataUrl);
+
+      // Extract base64 part for the AI analysis
+      const base64 = fileDataUrl.split(",")[1];
+      
       const analysis = await analyzeImage.mutateAsync(base64);
 
       if (pets) {
@@ -244,7 +248,6 @@ const onDrop = async (acceptedFiles: File[]) => {
           imageToUpload = await compressImage(file);
         } catch (error) {
           console.error('Error compressing image:', error);
-          // Continue with original imageToUpload if compression fails
         }
       }
 
@@ -254,8 +257,8 @@ const onDrop = async (acceptedFiles: File[]) => {
         species: analysis.species,
         breed: analysis.breed ?? null,
         gender: analysis.gender ?? null,
-        age: (analysis as any).age ?? null, // Match the new database schema
-        imageUrl: imageToUpload, // This now safely contains your initial image
+        age: (analysis as any).age ?? null,
+        imageUrl: imageToUpload,
         imageGallery: [],
         lastMoodUpdate: null,
         careRecommendations: analysis.careRecommendations ?? [],
@@ -290,6 +293,8 @@ const onDrop = async (acceptedFiles: File[]) => {
         vaccinationSchedule: null,
         nextVaccinationDue: null,
         vaccinationNotes: null,
+        nutritionAnalysis: null,
+        lastInjuryAnalysis: null,
       });
       await refreshUser();
     } catch (error) {
@@ -389,21 +394,21 @@ const onDrop = async (acceptedFiles: File[]) => {
     <div className="min-h-[calc(100vh-80px)] md:min-h-screen relative flex flex-col">
       
       {!user ? (
-        <div className="flex-1 flex items-center justify-center w-full py-12 md:py-20 relative z-10">
-          <div className="w-[92%] max-w-5xl mx-auto px-6 md:px-12 py-16 md:py-20 flex flex-col items-center text-center bg-white/20 dark:bg-black/20 backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] rounded-[3rem]">
-            <h1 className="text-5xl md:text-7xl font-extrabold mb-6 tracking-tight text-[#0a0a0a] transition-transform duration-500 cursor-default">
-              Take Care of your Best Friend
+        <div className="flex-1 flex items-center justify-center w-full py-8 md:py-12 relative z-10">
+          <div className="w-[92%] max-w-5xl mx-auto px-6 md:px-12 py-16 md:py-20 flex flex-col items-center text-center bg-white/60 backdrop-blur-xl border border-white/60 shadow-[0_8px_40px_0_rgba(0,0,0,0.06)] rounded-[3rem]">
+            <h1 className="text-5xl md:text-7xl font-black mb-6 tracking-[-0.04em] text-[#0a0a0a] cursor-default leading-[1.05]">
+              Take Care of your <span className="bg-gradient-to-r from-[#ff6b4a] to-[#ff8f6b] bg-clip-text text-transparent">Best Friend</span>
             </h1>
-          <p className="text-xl text-muted-foreground mb-12 max-w-2xl">
-            Sign in to start tracking and caring for your pets
+          <p className="text-lg text-muted-foreground mb-12 max-w-xl leading-relaxed">
+            AI-powered wellness tracking, injury scanning, and veterinary consultations — all in one place.
           </p>
 
-          <div className="w-full max-w-2xl mb-12 relative group cursor-default">
-            <div className="absolute inset-0 bg-primary/10 blur-3xl rounded-full scale-90 group-hover:bg-primary/20 transition-colors duration-500" />
+          <div className="w-full max-w-md mb-12 relative group cursor-default">
+            <div className="absolute inset-0 bg-[#ff6b4a]/10 blur-[60px] rounded-full scale-75" />
             <img
               src={petCareImage}
               alt="Pet care illustration"
-              className="w-full h-auto relative z-10 drop-shadow-2xl group-hover:scale-[1.03] transition-transform duration-500"
+              className="w-full h-auto relative z-10 drop-shadow-2xl animate-float"
             />
           </div>
 
@@ -432,65 +437,109 @@ const onDrop = async (acceptedFiles: File[]) => {
       ) : !showUploader ? (
         <>
           <Header />
-          <div className="flex-1 flex items-center justify-center w-full py-12 relative z-10">
-            <div className="w-[92%] max-w-6xl mx-auto px-6 md:px-12 py-16 md:py-20 flex flex-col items-center text-center bg-white/20 dark:bg-black/20 backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] rounded-[3rem]">
-              <h1 className="text-5xl md:text-7xl font-extrabold mb-6 tracking-tight text-[#0a0a0a] transition-transform duration-500 cursor-default">
-              Take Care of your Best Friend
-            </h1>
-            <p className="text-xl text-muted-foreground mb-12 max-w-2xl">
-              We will help you to provide guided care for your furry and non-furry friends
-            </p>
-
-{/*            
-              <img
-                src={petCareImage}
-                alt="Pet care illustration"
-                className="w-full h-50 relative z-10 drop-shadow-2xl group-hover:scale-[1.03] transition-transform duration-500"
-              /> */}
-            
-
-            <div className="flex flex-col items-center gap-4">
-              <Button
-                size="lg"
-                onClick={() => {
-                  if (Number(user?.freeScanUsed || 0) >= 2) {
-                    handleCheckout();
-                  } else {
-                    setShowUploader(true);
-                  }
-                }}
-                className="text-xl px-12 py-8 bg-[#ff6b4a] hover:bg-[#e05a3b] text-white border-transparent shadow-[0_20px_50px_rgba(255,107,74,0.3)] hover:shadow-[0_25px_60px_rgba(255,107,74,0.5)] hover:-translate-y-2 active:translate-y-0 active:scale-95 transition-all duration-300 ease-out rounded-full"
+          
+          {/* ── Dashboard: 3 Premium Feature Cards ── */}
+          <div className="container max-w-7xl mx-auto px-4 pt-6 pb-4 relative z-10">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6"
+            >
+              {/* Card 1: Injury Scanner (Moved to 1st) */}
+              <motion.div
+                whileHover={{ y: -8, scale: 1.02 }}
+                onClick={() => setLocation("/scan")} 
+                className="group relative cursor-pointer overflow-hidden p-8 rounded-[2.5rem] bg-gradient-to-br from-[#ff6b4a]/10 to-orange-500/5 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-300"
               >
-                {Number(user?.freeScanUsed || 0) >= 2 ? 'Unlock Unlimited Scans' : 'Get Guided Care'}
-              </Button>
+                <div className="absolute inset-0 bg-gradient-to-br from-[#ff6b4a]/20 to-orange-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-[#ff6b4a] to-orange-500 flex items-center justify-center mb-6 shadow-lg shadow-orange-500/40 group-hover:scale-110 transition-transform duration-500">
+                    <HeartPulse className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-black text-foreground mb-3">Injury Scanner</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Upload a photo of an injury for a specialized deep-dive medical report and treatment analysis.
+                  </p>
+                  <div className="mt-8 flex items-center text-[#ff6b4a] font-bold text-sm tracking-wide">
+                    SCAN NOW <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-2 transition-transform" />
+                  </div>
+                </div>
+              </motion.div>
 
-              {fulfillmentStatus && (
-                <p className="mt-4 text-sm font-medium animate-pulse text-[#ff6b4a] bg-[#ff6b4a]/10 px-4 py-2 rounded-full border border-[#ff6b4a]/20">
-                  {fulfillmentStatus}
-                </p>
-              )}
-            </div>
+              {/* Card 2: AI Vet Consultation (Remains 2nd) */}
+              <motion.div
+                whileHover={{ y: -8, scale: 1.02 }}
+                onClick={() => setLocation("/vet")}
+                className="group relative cursor-pointer overflow-hidden p-8 rounded-[2.5rem] bg-gradient-to-br from-blue-500/10 to-teal-500/5 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-300"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-teal-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center mb-6 shadow-lg shadow-blue-500/40 group-hover:scale-110 transition-transform duration-500">
+                    <Stethoscope className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-black text-foreground mb-3">Consult AI Vet</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Instant medical triage, behavioral advice, and symptom checking powered by specialized veterinary AI.
+                  </p>
+                  <div className="mt-8 flex items-center text-blue-500 font-bold text-sm tracking-wide">
+                    START CHAT <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-2 transition-transform" />
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Card 3: AI Portraits (Moved to 3rd) */}
+              <motion.div
+                whileHover={{ y: -8, scale: 1.02 }}
+                onClick={() => setLocation("/pet-portraits")}
+                className="group relative cursor-pointer overflow-hidden p-8 rounded-[2.5rem] bg-gradient-to-br from-purple-500/10 to-pink-500/5 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-300"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-6 shadow-lg shadow-purple-500/40 group-hover:scale-110 transition-transform duration-500">
+                    <Camera className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-black text-foreground mb-3">AI Portraits</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Capture stunning, high-definition AI-generated portraits of your pets in unique artistic styles.
+                  </p>
+                  <div className="mt-8 flex items-center text-purple-500 font-bold text-sm tracking-wide">
+                    CREATE NOW <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-2 transition-transform" />
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+
+            {/* Quick Create Pet Floating Card (Premium MVP style) */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              onClick={() => setShowUploader(true)}
+              className="flex items-center justify-center gap-3 p-4 mb-6 bg-white/40 dark:bg-black/40 backdrop-blur-xl border border-white/40 rounded-2xl cursor-pointer hover:bg-[#ff6b4a]/10 hover:border-[#ff6b4a]/40 transition-all group"
+            >
+              <Plus className="w-5 h-5 text-[#ff6b4a] group-hover:rotate-90 transition-transform" />
+              <span className="font-bold text-sm tracking-tight">ADD A NEW PET PROFILE</span>
+            </motion.div>
           </div>
-        </div>
-<div className="container max-w-4xl mx-auto px-4 py-12 relative z-10">
-         {isLoadingPets ? (
+          <div className="container max-w-7xl mx-auto px-4 py-4 relative z-10 border-t border-white/10">
+            {isLoadingPets ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-[#ff6b4a] mb-4" />
                 <p className="text-muted-foreground font-medium animate-pulse">Loading your pets...</p>
               </div>
             ) : pets && pets.length > 0 ? (
               <div>
-                <h2 className="text-2xl font-semibold mb-4">Your Pets</h2>
-                <div className="grid gap-4 md:grid-cols-2">
+                <h2 className="text-2xl font-black mb-4 tracking-tight">Your Pets</h2>
+                <div className="grid gap-6 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                   {pets.map((pet) => (
                     <Card
                       key={pet.id}
                       className="cursor-pointer overflow-hidden border-border/50 bg-background/60 backdrop-blur-sm hover:shadow-xl hover:-translate-y-2 hover:border-primary/30 transition-all duration-300 ease-out group"
                       onClick={() => setLocation(`/pet/${pet.id}`)}
                     >
-                      <CardContent className="p-4">
+                      <CardContent className="p-3">
                         {pet.imageUrl && (
-                          <div className="relative w-full h-70 mb-5 overflow-hidden rounded-xl shadow-inner">
+                          <div className="relative w-full aspect-[4/3] mb-5 overflow-hidden rounded-xl shadow-inner">
                             <img
                               src={pet.imageUrl}
                               alt={pet.name}
@@ -499,8 +548,8 @@ const onDrop = async (acceptedFiles: File[]) => {
                             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                           </div>
                         )}
-                        <h3 className="font-bold text-xl group-hover:text-primary transition-colors">{pet.name}</h3>
-                        <p className="text-sm font-medium text-muted-foreground mt-1">
+                        <h3 className="font-bold text-lg group-hover:text-primary transition-colors">{pet.name}</h3>
+                        <p className="text-xs font-medium text-muted-foreground mt-1">
                           {pet.breed ? `${pet.species} • ${pet.breed}` : pet.species}
                         </p>
                       </CardContent>
@@ -509,7 +558,7 @@ const onDrop = async (acceptedFiles: File[]) => {
                 </div>
               </div>
             ) : null}
-            </div>
+          </div>
         </>
       ) : (
         <>
@@ -536,13 +585,13 @@ const onDrop = async (acceptedFiles: File[]) => {
             </div>
 
             {/* ── Dropzone card with rich AI-focused content ── */}
-            <Card className="mb-12 border-0 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_60px_-15px_rgba(168,85,247,0.3)] transition-shadow duration-500 bg-card/60 backdrop-blur-xl overflow-hidden rounded-2xl">
-              <CardContent className="pt-6 relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-pink-500/10 pointer-events-none" />
+            <Card className="mb-12 border border-black/[0.04] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.08)] hover:shadow-[0_24px_60px_-12px_rgba(255,107,74,0.12)] transition-all duration-500 bg-white overflow-hidden rounded-3xl">
+              <CardContent className="pt-8 pb-8 relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#ff6b4a]/[0.03] via-transparent to-blue-500/[0.02] pointer-events-none" />
                 <div
                   {...getRootProps()}
-                  className={`border-2 border-dashed rounded-xl p-10 md:p-16 text-center cursor-pointer transition-all duration-500 ease-in-out relative z-10
-                    ${isDragActive ? "border-[#ff6b4a] bg-[#ff6b4a]/10 scale-105 shadow-inner" : "border-primary/50 hover:border-primary hover:bg-primary/5 hover:-translate-y-1"}
+                  className={`border-2 border-dashed rounded-2xl p-10 md:p-16 text-center cursor-pointer transition-all duration-500 ease-in-out relative z-10
+                    ${isDragActive ? "border-[#ff6b4a] bg-[#ff6b4a]/[0.06] scale-[1.02]" : "border-black/10 hover:border-[#ff6b4a]/50 hover:bg-[#ff6b4a]/[0.02]"}
                     ${isLoading ? "pointer-events-none opacity-50" : ""}`}
                 >
                   <input {...getInputProps()} />
@@ -557,12 +606,12 @@ const onDrop = async (acceptedFiles: File[]) => {
                   ) : (
                     /* Empty / drag-active state */
                     <div className="flex flex-col items-center gap-3">
-                      <div className={`relative mb-2 transition-transform duration-300 ${isDragActive ? "scale-110" : ""}`}>
-                        <div className="w-20 h-20 rounded-full bg-[#ff6b4a]/10 flex items-center justify-center mx-auto">
-                          <PawPrint className="w-10 h-10 text-[#ff6b4a]" />
+                      <div className={`relative mb-4 transition-transform duration-300 ${isDragActive ? "scale-110" : ""}`}>
+                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#ff6b4a] to-[#ff8f6b] flex items-center justify-center mx-auto shadow-lg shadow-[#ff6b4a]/20">
+                          <PawPrint className="w-10 h-10 text-white" />
                         </div>
-                        <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Sparkles className="w-4 h-4 text-primary" />
+                        <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-white shadow-md flex items-center justify-center">
+                          <Sparkles className="w-4 h-4 text-[#ff6b4a]" />
                         </div>
                       </div>
 
@@ -580,11 +629,11 @@ const onDrop = async (acceptedFiles: File[]) => {
                       </div>
 
                       {/* AI feature badges */}
-                      <div className="flex flex-wrap justify-center gap-2 mt-3">
+                      <div className="flex flex-wrap justify-center gap-2 mt-4">
                         {["Breed Detection", "Diet Plan", "Grooming Guide", "Care Tips"].map((badge) => (
                           <span
                             key={badge}
-                            className="text-xs px-3 py-1 rounded-full bg-[#ff6b4a]/10 text-[#ff6b4a] font-medium border border-[#ff6b4a]/20"
+                            className="text-xs px-3 py-1.5 rounded-full bg-[#ff6b4a]/[0.06] text-[#ff6b4a] font-semibold border border-[#ff6b4a]/10 tracking-wide"
                           >
                             {badge}
                           </span>

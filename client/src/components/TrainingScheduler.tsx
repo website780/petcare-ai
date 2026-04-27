@@ -255,7 +255,7 @@ export function TrainingScheduler({ pet }: TrainingSchedulerProps) {
           <DialogTrigger asChild>
             <Button>Schedule Training</Button>
           </DialogTrigger>
-          <DialogContent className="p-4 md:p-6 w-[95vw] max-w-[850px]">
+          <DialogContent className="p-4 md:p-6 w-[95vw] max-w-[850px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Schedule Training Session</DialogTitle>
               <DialogDescription>

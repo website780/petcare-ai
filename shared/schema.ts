@@ -60,6 +60,8 @@ export const pets = pgTable("pets", {
   nextVaccinationDue: timestamp("next_vaccination_due"),
   vaccinationNotes: text("vaccination_notes"),
   age: text("age"),
+  nutritionAnalysis: jsonb("nutrition_analysis"),
+  lastInjuryAnalysis: jsonb("last_injury_analysis"),
 });
 
 export const reminders = pgTable("reminders", {

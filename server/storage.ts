@@ -183,12 +183,36 @@ export class PostgresStorage implements IStorage {
       .returning();
     console.log(`[RESET-STORAGE] Updated: freeScanUsed=${updatedUser.freeScanUsed}, vetChatCredits=${updatedUser.vetChatCredits}`);
 
-    // Step 2: Delete all associated records
-    await db.delete(pets).where(eq(pets.userId, userId));
-    await db.delete(standaloneScans).where(eq(standaloneScans.userId, userId));
-    await db.delete(standaloneVetChats).where(eq(standaloneVetChats.userId, userId));
-    await db.delete(petPortraits).where(eq(petPortraits.userId, userId));
-    console.log(`[RESET-STORAGE] All data deleted for user ${userId}`);
+    // Step 2: Delete all associated records in correct order to avoid FK issues
+    console.log(`[RESET-STORAGE] Cleaning dependencies for user ${userId}`);
+    
+    // Ordered list of tables to delete based on foreign key dependencies
+    const tablesToDelete = [
+      reminders,
+      vetConsultations,
+      groomingAppointments,
+      trainingAppointments,
+      insuranceClaims,
+      insurancePolicies,
+      petExpenses,
+      petPortraits,
+      standaloneScans,
+      standaloneVetChats,
+      processedPayments,
+      pets // Final delete
+    ];
+
+    for (const table of tablesToDelete) {
+      try {
+        await db.delete(table).where(eq((table as any).userId, userId));
+      } catch (e) {
+        // Log skip for non-existent or conflicting tables, but throw for the final pets delete if it fails
+        console.warn(`[RESET] Skipping/Failed cleanup for table:`, e instanceof Error ? e.message : e);
+        if (table === pets) throw e;
+      }
+    }
+    
+    console.log(`[RESET-STORAGE] Reset complete for user ${userId}`);
 
     return updatedUser;
   }
