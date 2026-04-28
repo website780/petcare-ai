@@ -29,19 +29,27 @@ export default function SuccessPage() {
         } else if (auth.currentUser?.email) {
           // Try to fulfill any recent paid scan or injury report for this email
           console.log("[Success] Verifying by Email Forensics:", auth.currentUser.email);
-          // First try AI Scan (Home Analysis)
-          response = await apiRequest("GET", `/api/stripe/fulfill-by-email?email=${auth.currentUser.email}&type=home_analysis`);
-          let data = await response.json();
           
-          if (!data.success) {
-            // Fallback to Injury Report
-            response = await apiRequest("GET", `/api/stripe/fulfill-by-email?email=${auth.currentUser.email}&type=injury_report`);
-            data = await response.json();
+          // Try types in order of likelihood
+          const typesToTry = ["injury_report", "vet_chat_pack", "portrait_hd", "portrait_print", "home_analysis"];
+          let foundData = null;
+
+          for (const type of typesToTry) {
+            const forensicRes = await apiRequest("GET", `/api/stripe/fulfill-by-email?email=${auth.currentUser.email}&type=${type}`);
+            const forensicData = await forensicRes.json();
+            if (forensicData.success) {
+              foundData = forensicData;
+              break;
+            }
           }
-          
-          // Re-wrap in a mock response object so it fits the existing logic below
-          const finalData = data;
-          response = { json: async () => finalData };
+
+          if (foundData) {
+            const finalData = foundData;
+            response = { json: async () => finalData };
+          } else {
+            await refreshUser();
+            return;
+          }
         } else {
           await refreshUser();
           return;
@@ -70,12 +78,14 @@ export default function SuccessPage() {
 
   const getTargetLink = () => {
     switch(purchaseType) {
-      case "injury_report": return { label: "Return to Injury Scanner", href: "/scan" };
-      case "vet_chat_pack": return { label: "Start AI Vet Chat", href: "/vet" };
+      case "injury_report": return { label: "Go to Injury Scanner", href: "/scan" };
+      case "vet_chat_pack": 
+      case "vet_chat": return { label: "Go to AI Vet", href: "/vet" };
       case "portrait_hd":
       case "portrait_print":
-      case "portrait": return { label: "Go to Your Portraits", href: "/pet-portraits" };
-      default: return { label: "Return to AI Scan", href: "/" };
+      case "portrait": return { label: "Go to AI Portraits", href: "/pet-portraits" };
+      case "home_analysis": return { label: "Go to Injury Scanner", href: "/scan" };
+      default: return { label: "Return to Dashboard", href: "/" };
     }
   };
 
@@ -93,26 +103,28 @@ export default function SuccessPage() {
           )}
         </div>
         
-        <h1 className="text-4xl font-bold mb-4">
-          {verifying ? "Verifying Payment..." : "Payment Successful!"}
+        <h1 className="text-4xl font-bold mb-4 tracking-tight">
+          {verifying ? "Verifying Transaction..." : "Masterpiece Unlocked!"}
         </h1>
         
-        <p className="text-lg text-muted-foreground mb-8 text-center max-max-w-md mx-auto">
+        <p className="text-lg text-muted-foreground mb-12 text-center max-w-md mx-auto leading-relaxed">
           {verifying 
-            ? "We're just confirming your transaction with Stripe. One moment..." 
-            : "Thank you for your purchase! Your premium features have been unlocked automatically. You can now access your full report or chat credits."}
+            ? "We're just confirming your transaction with Stripe. One moment while we upgrade your access..." 
+            : "Thank you for your purchase! Your premium access has been enabled. You can now return to the feature to see your results or start your session."}
         </p>
         
         {!verifying && (
-          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <Button asChild size="lg" className="bg-[#ff6b4a] hover:bg-[#e05a3b] px-8 py-6 text-lg font-bold shadow-lg shadow-orange-500/20">
-              <Link href={target.href} className="flex items-center gap-2">
-                {target.label} <ArrowRight className="w-5 h-5 ml-1" />
+          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <Button asChild size="lg" className="bg-[#ff6b4a] hover:bg-[#e05a3b] px-10 py-7 text-lg font-black shadow-xl shadow-orange-500/20 rounded-2xl">
+              <Link href={target.href} className="flex items-center gap-3">
+                {target.label} <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="px-8 py-6">
-              <Link href="/">Main Menu</Link>
-            </Button>
+            {target.href !== "/" && (
+              <Button asChild variant="outline" size="lg" className="px-10 py-7 text-lg font-bold rounded-2xl border-2 hover:bg-slate-50 transition-all">
+                <Link href="/">Go to Home</Link>
+              </Button>
+             )}
           </div>
         )}
       </div>

@@ -715,7 +715,12 @@ export function registerRoutes(app: Express): Server {
       if (session.payment_status === 'paid') {
         const success = await fulfillOrder(session);
         console.log(`[Stripe-Success] Found and processed session: ${session.id}`);
-        return res.json({ success, type: session.metadata?.type || "unknown", message: success ? "Your purchase has been fulfilled!" : "Partial match found." });
+        return res.json({ 
+          success, 
+          type: session.metadata?.type || "unknown", 
+          metadata: session.metadata, // Return all metadata for client-side routing
+          message: success ? "Your purchase has been fulfilled!" : "Partial match found." 
+        });
       }
       
       res.json({ success: false, message: "Payment not verified yet." });
