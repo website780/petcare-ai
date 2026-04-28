@@ -179,6 +179,44 @@ export function InjuryScanner() {
       toast({ variant: "destructive", title: "Failed to create pet", description: err.message });
     },
   });
+  // Add URL parameter check for direct report loading
+  useEffect(() => {
+    // Wouter sometimes eats searchParams on initial mount, so check full href just in case
+    const urlParams = new URLSearchParams(window.location.search);
+    let scanId = urlParams.get("id");
+    
+    if (!scanId && window.location.href.includes("?id=")) {
+      scanId = window.location.href.split("?id=")[1]?.split("&")[0];
+    }
+    
+    if (scanId) {
+      toast({ title: "Opening Report", description: "Loading your saved medical report..." });
+      
+      const fetchScan = async () => {
+        try {
+          const res = await apiRequest("GET", `/api/standalone/scan/${scanId}`);
+          if (res.ok) {
+            const scanData = await res.json();
+            setPetInfo(scanData.petInfo || { species: "", breed: "", weight: "", age: "", gender: "" });
+            if (scanData.injuryPhotoUrl) {
+              setInjuryImage(`data:image/jpeg;base64,${scanData.injuryPhotoUrl}`);
+            }
+            setAnalysis(scanData.analysisResults);
+            setIsPaid(true); 
+            setCurrentScanId(Number(scanId));
+            setStep("analysis"); // Force step
+            toast({ title: "Success", description: "Report unlocked and loaded!" });
+          } else {
+             toast({ variant: "destructive", title: "Error", description: "Report found in URL but backend couldn't read it." });
+          }
+        } catch (err) {
+          toast({ variant: "destructive", title: "Error", description: "Network failed pulling report." });
+        }
+      };
+      
+      fetchScan();
+    }
+  }, []);
 
   // AUTO-UNLOCK POLLING
   useEffect(() => {

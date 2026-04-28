@@ -474,6 +474,19 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get standalone scan by ID
+  app.get("/api/standalone/scan/:id", async (req, res) => {
+    try {
+      const scanId = Number(req.params.id);
+      const scan = await storage.getStandaloneScan(scanId);
+      if (!scan) return res.status(404).json({ error: "Scan not found" });
+      res.json(scan);
+    } catch (error) {
+      console.error("Error fetching standalone scan:", error);
+      res.status(500).json({ error: "Failed to fetch scan" });
+    }
+  });
+
   // Save scan and handle free scan logic
   app.post("/api/standalone/scan", async (req, res) => {
     try {
@@ -801,7 +814,12 @@ export function registerRoutes(app: Express): Server {
       if (match) {
         console.log(`[Email-Forensics] Found new paid session: ${match.id}`);
         const success = await fulfillOrder(match, typeHint);
-        return res.json({ success, type: typeHint || "unknown", message: "Found and processed your payment!" });
+        return res.json({ 
+          success, 
+          type: typeHint || "unknown", 
+          metadata: match.metadata,
+          message: "Found and processed your payment!" 
+        });
       }
 
       res.json({ success: false, message: `Found ${emailSessions.length} session(s), but none are 'paid' yet.` });

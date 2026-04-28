@@ -13,6 +13,7 @@ export default function SuccessPage() {
   const [verifying, setVerifying] = useState(false);
   const [complete, setComplete] = useState(false);
   const [purchaseType, setPurchaseType] = useState<string | null>(null);
+  const [purchaseMetadata, setPurchaseMetadata] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function SuccessPage() {
           console.log("[Success] Fulfillment confirmed!", data.type);
           setComplete(true);
           setPurchaseType(data.type);
+          setPurchaseMetadata(data.metadata || null);
           await refreshUser();
           toast({
             title: "Access Unlocked!",
@@ -78,7 +80,11 @@ export default function SuccessPage() {
 
   const getTargetLink = () => {
     switch(purchaseType) {
-      case "injury_report": return { label: "Go to Injury Scanner", href: "/scan" };
+      case "injury_report": 
+        return { 
+          label: "Go to Injury Scanner", 
+          href: purchaseMetadata?.scanId ? `/scan?id=${purchaseMetadata.scanId}` : "/scan" 
+        };
       case "vet_chat_pack": 
       case "vet_chat": return { label: "Go to AI Vet", href: "/vet" };
       case "portrait_hd":
