@@ -22,16 +22,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 
 const STYLES = [
-  { id: "watercolor", name: "Watercolor", emoji: "🎨", description: "Soft flowing washes", color: "from-blue-400 to-indigo-400" },
-  { id: "oil-painting", name: "Oil Painting", emoji: "🖼️", description: "Classic renaissance", color: "from-amber-400 to-orange-500" },
-  { id: "pop-art", name: "Pop Art", emoji: "🌈", description: "Bold Warhol-inspired", color: "from-pink-500 to-rose-500" },
-  { id: "anime", name: "Anime", emoji: "✨", description: "High-fidelity Seinen", color: "from-purple-500 to-indigo-500" },
-  { id: "pencil-sketch", name: "Pencil Sketch", emoji: "✏️", description: "Detailed graphite", color: "from-slate-400 to-slate-600" },
-  { id: "pixel-art", name: "Pixel Art", emoji: "👾", description: "Retro 16-bit gaming", color: "from-green-400 to-emerald-500" },
-  { id: "stained-glass", name: "Stained Glass", emoji: "🏰", description: "Cathedral window", color: "from-violet-500 to-fuchsia-500" },
-  { id: "art-nouveau", name: "Art Nouveau", emoji: "🌸", description: "Elegant Mucha", color: "from-emerald-400 to-teal-500" },
-  { id: "cyberpunk", name: "Cyberpunk", emoji: "🤖", description: "Futuristic neon", color: "from-cyan-400 to-blue-500" },
-  { id: "impressionist", name: "Impressionist", emoji: "🌻", description: "Monet-inspired", color: "from-yellow-400 to-orange-400" },
+  { id: "watercolor", name: "Watercolor", emoji: "🎨", description: "Soft flowing washes", color: "from-blue-600 to-indigo-600" },
+  { id: "oil-painting", name: "Oil Painting", emoji: "🖼️", description: "Classic renaissance", color: "from-amber-600 to-orange-700" },
+  { id: "pop-art", name: "Pop Art", emoji: "🌈", description: "Bold Warhol-inspired", color: "from-pink-700 to-rose-700" },
+  { id: "anime", name: "Anime", emoji: "✨", description: "High-fidelity Seinen", color: "from-purple-700 to-indigo-800" },
+  { id: "pencil-sketch", name: "Pencil Sketch", emoji: "✏️", description: "Detailed graphite", color: "from-slate-600 to-slate-800" },
+  { id: "pixel-art", name: "Pixel Art", emoji: "👾", description: "Retro 16-bit gaming", color: "from-green-600 to-emerald-700" },
+  { id: "stained-glass", name: "Stained Glass", emoji: "🏰", description: "Cathedral window", color: "from-violet-700 to-fuchsia-800" },
+  { id: "art-nouveau", name: "Art Nouveau", emoji: "🌸", description: "Elegant Mucha", color: "from-emerald-600 to-teal-700" },
+  { id: "cyberpunk", name: "Cyberpunk", emoji: "🤖", description: "Futuristic neon", color: "from-cyan-600 to-blue-700" },
+  { id: "impressionist", name: "Impressionist", emoji: "🌻", description: "Monet-inspired", color: "from-yellow-600 to-orange-600" },
 ];
 
 interface PrintSize {
@@ -54,7 +54,7 @@ const PRINT_SIZES: PrintSize[] = [
 ];
 
 export default function PetPortraits() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -127,6 +127,10 @@ export default function PetPortraits() {
       toast({ title: "Login Required", description: "Please sign in to generate your pet portrait." });
       return;
     }
+    if ((user.appTokenBalance || 0) < 3) {
+      toast({ variant: "destructive", title: "Insufficient Tokens", description: "3 Tokens required to generate a portrait. Please top up." });
+      return;
+    }
     setIsGenerating(true);
     try {
       const response = await apiRequest("POST", "/api/portraits/generate", {
@@ -138,6 +142,7 @@ export default function PetPortraits() {
       setGeneratedPortrait(data.portraitImageUrl);
       setPortraitId(data.id);
       setStep("result");
+      await refreshUser();
       queryClient.invalidateQueries({ queryKey: [`/api/users/${user.dbId}/portraits`] });
       toast({ title: "Artistic Masterpiece Ready!", description: "Check out your new pet portrait.", className: "bg-purple-600 text-white" });
     } catch (error) {
@@ -227,6 +232,24 @@ export default function PetPortraits() {
 
   const handleDownloadWithWatermark = async () => {
     if (!generatedPortrait) return;
+    
+    if ((user?.appTokenBalance ?? 0) < 3) {
+      toast({ variant: "destructive", title: "Insufficient Tokens", description: "3 Tokens required to download the preview. Please top up." });
+      return;
+    }
+
+    try {
+      await apiRequest("POST", "/api/tokens/deduct", {
+        userId: user?.dbId,
+        amount: 3,
+        reason: "Portrait Preview Download"
+      });
+      await refreshUser();
+    } catch (err) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to deduct tokens for preview." });
+      return;
+    }
+
     const watermarked = await drawWatermarkedImage(generatedPortrait);
     const link = document.createElement("a");
     link.href = watermarked;
@@ -402,11 +425,11 @@ export default function PetPortraits() {
                         onClick={() => setSelectedStyle(style.id)}
                         className={`group relative cursor-pointer p-6 rounded-[2.5rem] border-2 transition-all duration-500 overflow-hidden ${
                           selectedStyle === style.id 
-                            ? "border-purple-600 bg-white shadow-2xl" 
-                            : "border-white/40 bg-white/30 backdrop-blur-sm hover:border-purple-200 hover:bg-white"
+                            ? "border-purple-600 bg-white shadow-[0_20px_50px_rgba(147,51,234,0.25)] scale-[1.02]" 
+                            : "border-slate-300 bg-white shadow-[0_10px_30px_rgba(0,0,0,0.06)] hover:border-purple-400 hover:shadow-[0_20px_40px_rgba(0,0,0,0.1)] hover:bg-white"
                         }`}
                       >
-                        <div className={`absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br ${style.color} opacity-10 rounded-full blur-2xl transition-transform duration-700 group-hover:scale-150`} />
+                        <div className={`absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br ${style.color} opacity-20 rounded-full blur-2xl transition-transform duration-700 group-hover:scale-150`} />
                         
                         <div className="relative z-10">
                           <div className="text-4xl mb-6 transform group-hover:scale-125 transition-transform duration-500">{style.emoji}</div>
@@ -440,7 +463,7 @@ export default function PetPortraits() {
                         ) : (
                           <>
                             <Wand2 className="w-6 h-6 group-hover:rotate-12 transition-transform" />
-                            <span>CREATE MASTERPIECE</span>
+                            <span>🪙 3 Tokens - CREATE MASTERPIECE</span>
                           </>
                         )}
                       </div>
@@ -575,7 +598,7 @@ export default function PetPortraits() {
                         className="text-slate-400 hover:text-white hover:bg-white/10" 
                         onClick={handleDownloadWithWatermark}
                       >
-                        FREE PREVIEW
+                        🪙 3 Tokens - DOWNLOAD PREVIEW
                       </Button>
                     </div>
                   </div>

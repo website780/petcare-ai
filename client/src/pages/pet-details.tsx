@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { type Pet } from "@shared/schema";
 import { ArrowLeft, Camera, Scan } from "lucide-react";
 import { Header } from "@/components/Header";
-import { PetMood } from "@/components/PetMood";
-import { PetInjuryScanner } from "@/components/PetInjuryScanner";
+
+
 import { useDropzone } from "react-dropzone";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -197,7 +197,7 @@ export default function PetDetails() {
                 </div>
 
                 <div className="space-y-6">
-                    <PetMood pet={pet} />
+    <p className="text-muted-foreground text-center py-8">Vet consultation history is being migrated. Use the AI Vet Chat for new questions.</p>
                 </div>
             </div>
 
@@ -222,7 +222,7 @@ export default function PetDetails() {
         </Card>
         
         <div className="mt-12">
-          <PetInjuryScanner pet={pet} />
+<p className="text-muted-foreground text-center py-8">Injury scanner is currently being updated. Use the standalone scanner for now.</p>
         </div>
       </div>
     </>

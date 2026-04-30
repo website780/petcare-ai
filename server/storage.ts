@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool } from "@neondatabase/serverless";
-import { type Pet, type InsertPet, type Reminder, type InsertReminder, type User, type InsertUser, type VetConsultation, type InsertVetConsultation, type GroomingAppointment, type InsertGroomingAppointment, type TrainingAppointment, type InsertTrainingAppointment, type InsurancePolicy, type InsertInsurancePolicy, type InsuranceClaim, type InsertInsuranceClaim, type PetExpense, type InsertPetExpense, type PetPortrait, type InsertPetPortrait, type StandaloneScan, type StandaloneVetChat } from "../shared/schema.js";
-import { pets, users, reminders, vetConsultations, groomingAppointments, trainingAppointments, insurancePolicies, insuranceClaims, petExpenses, petPortraits, standaloneScans, standaloneVetChats, processedPayments } from "../shared/schema.js";
+import { type Pet, type InsertPet, type Reminder, type InsertReminder, type User, type InsertUser, type VetConsultation, type InsertVetConsultation, type GroomingAppointment, type InsertGroomingAppointment, type TrainingAppointment, type InsertTrainingAppointment, type InsurancePolicy, type InsertInsurancePolicy, type InsuranceClaim, type InsertInsuranceClaim, type PetExpense, type InsertPetExpense, type PetPortrait, type InsertPetPortrait, type StandaloneScan, type StandaloneVetChat, type TokenTransaction, type InsertTokenTransaction, type Subscription, type InsertSubscription } from "../shared/schema.js";
+import { pets, users, reminders, vetConsultations, groomingAppointments, trainingAppointments, insurancePolicies, insuranceClaims, petExpenses, petPortraits, standaloneScans, standaloneVetChats, processedPayments, tokenTransactions, subscriptions } from "../shared/schema.js";
 import { eq, and, desc, sql } from "drizzle-orm";
 import ws from "ws";
 
@@ -28,6 +28,12 @@ export interface IStorage {
   getUserByFirebaseId(firebaseId: string): Promise<User | undefined>;
   updateUser(id: number, updates: Partial<InsertUser>): Promise<User>;
   updateUserCredits(id: number, field: 'freeScanUsed' | 'freeInjuryScanUsed' | 'vetChatCredits', value: number): Promise<User>;
+  adjustUserTokens(id: number, amount: number, type?: string, description?: string): Promise<User>;
+  getTokenTransactions(userId: number): Promise<TokenTransaction[]>;
+
+  // Subscription operations
+  getLatestSubscription(userId: number): Promise<Subscription | undefined>;
+  createSubscription(sub: InsertSubscription): Promise<Subscription>;
 
   // Pet operations
   getPet(id: number): Promise<Pet | undefined>;
@@ -173,12 +179,65 @@ export class PostgresStorage implements IStorage {
     return finalState;
   }
 
+  async adjustUserTokens(id: number, amount: number, type?: string, description?: string): Promise<User> {
+    console.log(`[TOKEN-ADJUST] Adjusting tokens for user ${id} by ${amount}`);
+    
+    // We fetch current user first to calculate new balance securely
+    const user = await this.getUser(id);
+    if (!user) throw new Error("User not found");
+    
+    // Allow deductions down to 0, or additions.
+    const currentBalance = Number(user.appTokenBalance || 0);
+    const newBalance = Math.max(0, currentBalance + amount); 
+    
+    console.log(`[TOKEN-ADJUST] User ${id} Current: ${currentBalance}, Change: ${amount}, New: ${newBalance}`);
+    
+    await db.update(users).set({ appTokenBalance: newBalance }).where(eq(users.id, id));
+
+    // Log transaction if info provided
+    if (type && description) {
+       await db.insert(tokenTransactions).values({
+         userId: id,
+         amount,
+         type,
+         description
+       });
+       console.log(`[TRANSACTION] Logged ${type} for user ${id}: ${description}`);
+    }
+    
+    const updated = await this.getUser(id);
+    if (!updated) throw new Error("User lost during token update");
+    
+    return { ...updated, appTokenBalance: newBalance };
+  }
+
+  async getTokenTransactions(userId: number): Promise<TokenTransaction[]> {
+    return await db.select()
+      .from(tokenTransactions)
+      .where(eq(tokenTransactions.userId, userId))
+      .orderBy(desc(tokenTransactions.createdAt));
+  }
+
+  async getLatestSubscription(userId: number): Promise<Subscription | undefined> {
+    const [sub] = await db.select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+      .orderBy(desc(subscriptions.createdAt))
+      .limit(1);
+    return sub;
+  }
+
+  async createSubscription(sub: InsertSubscription): Promise<Subscription> {
+    const [newSub] = await db.insert(subscriptions).values(sub).returning();
+    return newSub;
+  }
+
   async resetUserForTesting(userId: number): Promise<User> {
     console.log(`[RESET-STORAGE] Resetting user ${userId}`);
     
     // Step 1: Reset the user flags
     const [updatedUser] = await db.update(users)
-      .set({ freeScanUsed: 0, freeInjuryScanUsed: 0, vetChatCredits: 2 })
+      .set({ freeScanUsed: 0, freeInjuryScanUsed: 0, vetChatCredits: 2, appTokenBalance: 0 })
       .where(eq(users.id, userId))
       .returning();
     console.log(`[RESET-STORAGE] Updated: freeScanUsed=${updatedUser.freeScanUsed}, vetChatCredits=${updatedUser.vetChatCredits}`);
@@ -199,6 +258,8 @@ export class PostgresStorage implements IStorage {
       standaloneScans,
       standaloneVetChats,
       processedPayments,
+      tokenTransactions,
+      subscriptions,
       pets // Final delete
     ];
 

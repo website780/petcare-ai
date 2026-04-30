@@ -348,6 +348,17 @@ export function VetChatStandalone() {
   }, [chatHistory]);
 
   const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
+    const tokens = Number(user?.appTokenBalance ?? 0);
+    if (tokens < 2) {
+      toast({ 
+        variant: "destructive", 
+        title: "Insufficient Tokens", 
+        description: "Creating a new pet profile requires 2 tokens. Please top up your wallet." 
+      });
+      handleBuyCredits();
+      return;
+    }
+
     const file = acceptedFiles[0];
     if (!file) return;
     if (file.size > 15 * 1024 * 1024) {
@@ -445,15 +456,15 @@ export function VetChatStandalone() {
     onDrop: handleNewPetPhotoUpload,
     accept: { "image/*": [".jpeg", ".jpg", ".png"] },
     maxFiles: 1,
-    disabled: isCreatingPet,
+    disabled: isCreatingPet || (Number(user?.appTokenBalance ?? 0) < 2),
   });
 
   const handleSendMessage = async (overrideMessage?: string) => {
     const message = (overrideMessage ?? inputMessage).trim();
     if (!message) return;
 
-    const questionsRemaining = Number(user?.vetChatCredits ?? 0);
-    if (questionsRemaining <= 0) {
+    const tokensRemaining = Number(user?.appTokenBalance ?? 0);
+    if (tokensRemaining < 3) {
       handleBuyCredits();
       return;
     }
@@ -470,6 +481,7 @@ export function VetChatStandalone() {
       const res = await apiRequest("POST", "/api/chat/vet", {
         message: message,
         userId: user?.dbId,
+        petId: selectedPetId,
         petInfo,
         chatHistory: chatHistory.map(m => ({ role: m.role, content: m.content })),
         isStandalone: true
@@ -494,24 +506,8 @@ export function VetChatStandalone() {
     }
   };
 
-  const handleBuyCredits = async () => {
-    if (!user) {
-      toast({ title: "Login Required", description: "Please sign in to buy credits." });
-      return;
-    }
-
-    await syncChat(chatHistory);
-
-    try {
-      const res = await apiRequest("POST", "/api/stripe/create-checkout", {
-        type: "vet_chat_pack",
-        userId: user.dbId,
-      });
-      const { url } = await res.json();
-      window.location.href = url;
-    } catch (err) {
-      toast({ variant: "destructive", title: "Error", description: "Could not initiate payment." });
-    }
+  const handleBuyCredits = () => {
+    setLocation("/pricing");
   };
 
   if (isInitialLoading || loading) {
@@ -584,6 +580,12 @@ export function VetChatStandalone() {
                       <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#ff6b4a]" />
                       <p className="text-sm font-medium animate-pulse">Identifying your pet...</p>
                     </div>
+                  ) : (Number(user?.appTokenBalance ?? 0) < 2) ? (
+                    <div className="flex flex-col items-center gap-2 opacity-60 py-2">
+                      <Lock className="w-6 h-6 text-gray-400" />
+                      <p className="text-sm font-black uppercase tracking-tight">Insufficient Tokens</p>
+                      <p className="text-xs text-muted-foreground font-medium">2 Tokens required for AI profiling</p>
+                    </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2">
                       <Plus className="w-8 h-8 text-[#ff6b4a]/50" />
@@ -608,6 +610,16 @@ export function VetChatStandalone() {
                     <div className="space-y-4">
                       <Loader2 className="w-10 h-10 animate-spin mx-auto text-[#ff6b4a]" />
                       <p className="font-medium animate-pulse">Running facial and body recognition...</p>
+                    </div>
+                  ) : (Number(user?.appTokenBalance ?? 0) < 2) ? (
+                    <div className="flex flex-col items-center gap-4 opacity-60 py-4">
+                      <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-2">
+                        <Lock className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <div>
+                        <p className="text-lg font-black uppercase tracking-tighter">Insufficient Tokens</p>
+                        <p className="text-sm text-muted-foreground font-medium">Creating a pet profile requires 2 universal tokens.</p>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -716,8 +728,9 @@ export function VetChatStandalone() {
                         return;
                       }
 
-                      const credits = user ? Number(user.vetChatCredits ?? 0) : 0;
-                      if (credits <= 0) {
+                      const tokens = user ? Number(user.appTokenBalance ?? 0) : 0;
+                      if (tokens < 3) {
+                        toast({ variant: "destructive", title: "Insufficient Tokens", description: "3 Tokens required for a vet chat."});
                         handleBuyCredits();
                       } else {
                         setStep("chat");
@@ -787,8 +800,9 @@ export function VetChatStandalone() {
                   key={category.id} 
                   className="cursor-pointer hover:border-[#ff6b4a] hover:bg-[#ff6b4a]/5 transition-all group overflow-hidden border-2"
                   onClick={() => {
-                    const credits = user ? Number(user.vetChatCredits ?? 0) : 0;
-                    if (credits <= 0) {
+                    const tokens = user ? Number(user.appTokenBalance ?? 0) : 0;
+                    if (tokens < 3) {
+                      toast({ variant: "destructive", title: "Insufficient Tokens", description: "3 Tokens required for a vet chat."});
                       handleBuyCredits();
                       return;
                     }
@@ -952,17 +966,17 @@ export function VetChatStandalone() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center text-sm">
-                  <span>Questions Remaining</span>
-                  <Badge variant={user?.vetChatCredits === 0 ? "destructive" : "secondary"} className="text-lg">
-                    {user?.vetChatCredits ?? 2}
+                  <span>Tokens Remaining</span>
+                  <Badge variant={(user?.appTokenBalance ?? 0) < 3 ? "destructive" : "secondary"} className="text-lg">
+                    {user?.appTokenBalance ?? 0}
                   </Badge>
                 </div>
                 
-                {(user?.vetChatCredits ?? 0) <= 1 && (
+                {(user?.appTokenBalance ?? 0) < 3 && (
                   <Alert className="bg-amber-50/50 border-amber-200 py-3">
                     <Sparkles className="w-4 h-4 text-amber-500" />
                     <AlertDescription className="text-xs">
-                      Running low on questions? Top up to keep the consultation going.
+                      Running low on tokens? Top up to keep the consultation going.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -972,7 +986,7 @@ export function VetChatStandalone() {
                   onClick={handleBuyCredits}
                 >
                   <CreditCard className="w-4 h-4" />
-                  Buy 5 More Questions - $15
+                  Top Up Tokens
                 </Button>
 
                 {fulfillmentStatus && (

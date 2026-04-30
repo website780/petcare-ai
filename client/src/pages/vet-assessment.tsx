@@ -8,7 +8,7 @@ import { ArrowLeft, ActivitySquare } from "lucide-react";
 import { Header } from "@/components/Header";
 import { VetConsultation } from "@/components/VetConsultation";
 import { HealthAssessmentQuiz } from "@/components/HealthAssessmentQuiz";
-import { VetChat } from "@/components/VetChat";
+
 
 export default function VetAssessmentPage() {
   const { id } = useParams();
@@ -112,7 +112,7 @@ export default function VetAssessmentPage() {
           {/* New Vet Chat Component */}
           <div className="mb-10 p-1 rounded-[2.5rem] bg-gradient-to-br from-[#ff6b4a]/20 to-blue-500/20 shadow-xl">
              <div className="bg-white rounded-[2.2rem] overflow-hidden">
-                <VetChat pet={pet} />
+<p className="text-muted-foreground text-center py-8 text-sm italic">Health records are being updated. Use the AI Vet Chat for current questions.</p>
              </div>
           </div>
         </div>

@@ -25,6 +25,9 @@ const PetPortraits = lazy(() => import("@/pages/pet-portraits"));
 const VetStandalonePage = lazy(() => import("@/pages/vet-standalone"));
 const SuccessPage = lazy(() => import("@/pages/success"));
 const CancelPage = lazy(() => import("@/pages/cancel"));
+const PricingPage = lazy(() => import("@/pages/pricing"));
+const UsageHistoryPage = lazy(() => import("@/pages/usage-history"));
+const FAQPage = lazy(() => import("@/pages/faq"));
 
 function PrivateRoute({ component: Component, ...rest }: { component: React.ComponentType<any>, [key: string]: any }) {
   const { user, loading } = useAuth();
@@ -125,6 +128,9 @@ function Router() {
         />
         <Route path="/photo-tutorial" component={PhotoTutorialPage} />
         <Route path="/pet-portraits" component={() => <PrivateRoute component={PetPortraits} />} />
+        <Route path="/pricing" component={() => <PrivateRoute component={PricingPage} />} />
+        <Route path="/usage" component={() => <PrivateRoute component={UsageHistoryPage} />} />
+        <Route path="/faq" component={FAQPage} />
         
         <Route component={NotFound} />
       </Switch>

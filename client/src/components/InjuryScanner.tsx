@@ -161,7 +161,7 @@ export function InjuryScanner() {
       }
       return res.json();
     },
-    onSuccess: (newPet) => {
+    onSuccess: async (newPet) => {
       queryClient.invalidateQueries({ queryKey: ["/api/pets", user?.dbId] });
       // Pre-fill petInfo from new pet data
       setPetInfo({
@@ -173,6 +173,7 @@ export function InjuryScanner() {
       });
       setSelectedPetId(newPet.id);
       setStep("pet_details");
+      await refreshUser();
       toast({ title: "Pet profile created!", description: "Now verify your pet's details to continue." });
     },
     onError: (err: any) => {
@@ -430,6 +431,7 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
       const res = await apiRequest("POST", "/api/chat/vet", {
         message: inputMessage.trim(),
         userId: user.dbId,
+        petId: selectedPetId,
         petInfo,
         chatHistory: chatHistory.map(m => ({ role: (m.role as any), content: m.content })),
         injuryContext: {
@@ -473,9 +475,9 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
     }
     try {
       const res = await apiRequest("POST", "/api/stripe/create-checkout", {
-        type: "injury_report",
+        type: "credit_topup",
         userId: user.dbId,
-        metadata: { scanId: currentScanId },
+        metadata: { package: "100_credits" },
       });
       const { url } = await res.json();
       window.location.href = url;
@@ -550,24 +552,18 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
 
           <CardContent>
             {/* ── Paywall ── */}
-            {Number(user?.freeInjuryScanUsed || 0) >= 2 ? (
+            {(user?.appTokenBalance || 0) < 3 ? (
               <div className="flex flex-col items-center gap-6 py-8">
                 <div className="bg-primary/5 rounded-2xl p-8 w-full text-center space-y-4">
-                  <div className="text-3xl font-black">$4.99</div>
-                  <p className="text-sm text-muted-foreground">Complete High-Accuracy Medical Report & AI Vet Access</p>
+                  <div className="text-3xl font-black">🪙 3 Tokens</div>
+                  <p className="text-sm font-medium">This analysis requires 3 Universal Tokens. You currently have {user?.appTokenBalance || 0}.</p>
                   <Button
                     size="lg"
                     className="w-full bg-[#ff6b4a] hover:bg-[#e05a3b] py-6 font-bold"
                     onClick={handleCheckout}
                   >
-                    Pay & Start Scan
+                    Top Up Tokens
                   </Button>
-                  {fulfillmentStatus && (
-                    <div className="flex items-center justify-center gap-2 py-2">
-                      <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                      <span className="text-xs font-medium text-muted-foreground animate-pulse">{fulfillmentStatus}</span>
-                    </div>
-                  )}
                 </div>
               </div>
             ) : isLoadingPets ? (
@@ -947,7 +943,7 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
             <CardContent className="p-6 space-y-8">
               <div className="relative">
                 <div
-                  className={`space-y-6 ${!isUnlocked ? "blur-[8px] pointer-events-none select-none opacity-40" : ""}`}
+                  className="space-y-6"
                 >
                   <div className="grid grid-cols-1 gap-6">
                     <div className="space-y-4">
@@ -1010,52 +1006,6 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
                   </div>
                 </div>
 
-                {!isUnlocked && (
-                  <div className="absolute inset-0 flex items-center justify-center p-4">
-                    <Card className="max-w-md w-full shadow-2xl border-[#ff6b4a]/30 bg-white dark:bg-gray-900">
-                      <CardHeader className="text-center pb-2">
-                        <CardTitle className="text-2xl">Unlock Full Analysis</CardTitle>
-                        <CardDescription>
-                          Get the complete report including medications, expert advice, and AI Vet chat access.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="text-center space-y-6">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="text-4xl font-black text-[#0a0a0a] dark:text-white">$4.99</span>
-                          <span className="text-xs text-muted-foreground">one-time payment per scan</span>
-                        </div>
-                        <div className="space-y-3">
-                          {[
-                            "Detailed medical descriptions & diagnosis",
-                            "Exact medication & ointment names",
-                            "Unlock 24/7 AI Vet Chat for follow up",
-                          ].map((f) => (
-                            <div key={f} className="flex items-center gap-2 text-sm text-left px-4">
-                              <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                              <span>{f}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <Button
-                          size="lg"
-                          className="w-full bg-[#ff6b4a] hover:bg-[#e05a3b] text-lg font-bold py-7 rounded-xl shadow-lg hover:shadow-[#ff6b4a]/20"
-                          onClick={handleCheckout}
-                        >
-                          Unlock Full Report Now
-                        </Button>
-                        {fulfillmentStatus && (
-                          <div className="flex items-center justify-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                            <span className="text-xs font-medium text-orange-600 dark:text-orange-400 animate-pulse">
-                              {fulfillmentStatus}
-                            </span>
-                          </div>
-                        )}
-                        <p className="text-[10px] text-muted-foreground">Secure payment via Stripe. 256-bit encryption.</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -1068,18 +1018,6 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
             </div>
             
             <Card className="border border-border rounded-2xl overflow-hidden bg-background transition-all duration-300">
-              {!isUnlocked ? (
-                 <CardContent className="p-12 text-center flex flex-col items-center gap-4 opacity-40">
-                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                      <Lock className="w-8 h-8" />
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-lg">Chat Locked</h4>
-                      <p className="text-sm text-muted-foreground italic">Unlock the full report to start a follow-up conversation with our AI Vet.</p>
-                    </div>
-                    <Button variant="outline" disabled className="px-10">Consultation Locked</Button>
-                 </CardContent>
-              ) : (
                 <>
                   <CardContent className="h-[400px] overflow-y-auto p-6 space-y-4">
                     {chatHistory.length === 0 ? (
@@ -1124,7 +1062,6 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
                     </Button>
                   </div>
                 </>
-              )}
             </Card>
             <div className="flex justify-center">
                <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">

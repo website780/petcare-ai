@@ -2,6 +2,7 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
+import { useAuth } from "@/contexts/auth-context";
 import {
   Accordion,
   AccordionContent,
@@ -15,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "wouter";
+import { ArrowLeft } from "lucide-react";
 import { Pet, Reminder } from "@shared/schema";
 import { Apple, Clock, AlertTriangle, Cookie, Utensils, Bell, Plus, Edit2, Check, X } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
@@ -97,7 +100,7 @@ const formatFoodRecommendations = (pet: Pet): FoodRecommendation[] => {
   }
 
   // Check if foodRecommendations contains structured data (from OpenAI) or simple strings (from legacy)
-  if (typeof pet.foodRecommendations[0] === 'string') {
+  if (pet.foodRecommendations.length > 0 && typeof pet.foodRecommendations[0] === 'string') {
     // Try to parse as JSON first (new OpenAI format)
     try {
       const firstRecommendation = JSON.parse(pet.foodRecommendations[0]);
@@ -126,6 +129,7 @@ const formatFoodRecommendations = (pet: Pet): FoodRecommendation[] => {
 };
 
 export function NutritionGuide({ pet }: { pet: Pet }) {
+  const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
@@ -152,7 +156,7 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
           const diffInMinutes = Math.abs((now.getTime() - dueTime.getTime()) / (1000 * 60));
           
           // Check if reminder is due (within 1 minute window)
-          if (diffInMinutes <= 1 && !reminder.completed && (reminder.title?.toLowerCase().includes('feeding') || reminder.type === 'feeding')) {
+          if (diffInMinutes <= 1 && reminder.completed !== 1 && (reminder.title?.toLowerCase().includes('feeding'))) {
             toast({
               title: "Feeding Time!",
               description: `Time to feed ${pet.name} - ${reminder.title}`,
@@ -222,7 +226,7 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
   const updateReminderTime = useMutation({
     mutationFn: async (data: EditReminderTimeData) => {
       if (!editingReminderId) throw new Error('No reminder selected');
-      const response = await apiRequest("PUT", `/api/pets/${pet.id}/reminders/${editingReminderId}`, {
+      const response = await apiRequest("PATCH", `/api/reminders/${editingReminderId}`, {
         dueTime: data.time,
       });
       if (!response.ok) throw new Error('Failed to update reminder time');
@@ -245,8 +249,8 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
 
   const markComplete = useMutation({
     mutationFn: async (reminderId: number) => {
-      const response = await apiRequest("PUT", `/api/pets/${pet.id}/reminders/${reminderId}`, {
-        completed: true,
+      const response = await apiRequest("PATCH", `/api/reminders/${reminderId}`, {
+        completed: 1,
       });
       if (!response.ok) throw new Error('Failed to mark reminder as complete');
       return response.json();
@@ -259,7 +263,7 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
 
   const deleteReminder = useMutation({
     mutationFn: async (reminderId: number) => {
-      const response = await apiRequest("DELETE", `/api/pets/${pet.id}/reminders/${reminderId}`);
+      const response = await apiRequest("DELETE", `/api/reminders/${reminderId}`);
       if (!response.ok) throw new Error('Failed to delete reminder');
       return response.json();
     },
@@ -277,12 +281,14 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
         activityLevel: data.activityLevel,
         species: pet.species,
         age: data.age,
+        userId: user?.dbId,
       });
       if (!response.ok) throw new Error('Failed to analyze nutrition');
       return response.json();
     },
     onSuccess: async (result) => {
       setNutritionAnalysis(result);
+      await refreshUser();
       
       // Persist to pet profile
       try {
@@ -318,8 +324,8 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
       });
   }, [reminders]);
 
-  const pendingReminders = feedingReminders.filter(r => !r.completed);
-  const completedReminders = feedingReminders.filter(r => r.completed);
+  const pendingReminders = feedingReminders.filter(r => r.completed !== 1);
+  const completedReminders = feedingReminders.filter(r => r.completed === 1);
 
   const nutritionalInfo = useMemo(() => {
     if (!pet.nutritionalNeeds || !pet.foodRecommendations) {
@@ -357,7 +363,13 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
               </DialogHeader>
               <Form {...nutritionForm}>
                 <form
-                  onSubmit={nutritionForm.handleSubmit((data) => analyzeNutrition.mutate(data))}
+                  onSubmit={nutritionForm.handleSubmit((data) => {
+                    if ((user?.appTokenBalance ?? 0) < 3) {
+                      toast({ variant: "destructive", title: "Insufficient Tokens", description: "3 Tokens required for AI Nutrition analysis. Please top up." });
+                      return;
+                    }
+                    analyzeNutrition.mutate(data);
+                  })}
                   className="space-y-4"
                 >
                   <FormField
@@ -429,7 +441,7 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
                     )}
                   />
                   <Button type="submit" disabled={analyzeNutrition.isPending} className="w-full">
-                    {analyzeNutrition.isPending ? "Analyzing..." : "Get AI Nutrition Plan"}
+                    {analyzeNutrition.isPending ? "Analyzing..." : "🪙 3 Tokens - Get AI Nutrition Plan"}
                   </Button>
                 </form>
               </Form>

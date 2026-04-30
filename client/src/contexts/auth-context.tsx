@@ -10,6 +10,7 @@ interface ExtendedUser extends User {
   freeScanUsed?: number;
   freeInjuryScanUsed?: number;
   vetChatCredits?: number;
+  appTokenBalance?: number;
 }
 
 interface AuthContextType {
@@ -51,7 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             dbId: dbUser.id,
             freeScanUsed: Number(dbUser.freeScanUsed ?? 0),
             freeInjuryScanUsed: Number(dbUser.freeInjuryScanUsed ?? 0),
-            vetChatCredits: Number(dbUser.vetChatCredits ?? 2)
+            vetChatCredits: Number(dbUser.vetChatCredits ?? 2),
+            appTokenBalance: Number(dbUser.appTokenBalance ?? 0)
           };
 
           setUser(extendedUser);
@@ -163,7 +165,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             dbId: dbUser.id,
             freeScanUsed: Number(dbUser.freeScanUsed ?? 0),
             freeInjuryScanUsed: Number(dbUser.freeInjuryScanUsed ?? 0),
-            vetChatCredits: Number(dbUser.vetChatCredits ?? 2)
+            vetChatCredits: Number(dbUser.vetChatCredits ?? 2),
+            appTokenBalance: Number(dbUser.appTokenBalance ?? 0)
           };
 
           return {
@@ -174,7 +177,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             photoURL: dbUser.photoURL || prev.photoURL,
             freeScanUsed: dbUser.freeScanUsed !== undefined && dbUser.freeScanUsed !== null ? Number(dbUser.freeScanUsed) : prev.freeScanUsed,
             freeInjuryScanUsed: dbUser.freeInjuryScanUsed !== undefined && dbUser.freeInjuryScanUsed !== null ? Number(dbUser.freeInjuryScanUsed) : prev.freeInjuryScanUsed,
-            vetChatCredits: dbUser.vetChatCredits !== undefined && dbUser.vetChatCredits !== null ? Number(dbUser.vetChatCredits) : prev.vetChatCredits
+            vetChatCredits: dbUser.vetChatCredits !== undefined && dbUser.vetChatCredits !== null ? Number(dbUser.vetChatCredits) : prev.vetChatCredits,
+            appTokenBalance: dbUser.appTokenBalance !== undefined && dbUser.appTokenBalance !== null ? Number(dbUser.appTokenBalance) : prev.appTokenBalance
           };
         });
       }

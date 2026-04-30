@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { PetMood } from "@/components/PetMood";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Apple, Stethoscope, Scissors, Pencil, Camera, Calendar, Dumbbell, Scan, Syringe, ImagePlus } from "lucide-react";
+import { ArrowLeft, Apple, Stethoscope, Scissors, Pencil, Camera, Calendar, Dumbbell, Scan, Syringe, ImagePlus, ChevronRight } from "lucide-react";
 import { type Pet } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +15,7 @@ import { useDropzone } from "react-dropzone";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/hooks/use-auth";
-import { ShareMissingPet } from "@/components/ShareMissingPet";
+
 
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB for initial uploads
 const COMPRESSION_QUALITY = 0.9; // 90% quality
@@ -66,6 +66,8 @@ export default function PetProfile() {
   const [isProcessing, setIsProcessing] = useState(false);
   // Controls whether the change-photo dropzone overlay is visible
   const [showChangePhoto, setShowChangePhoto] = useState(false);
+  const [pendingSize, setPendingSize] = useState<string>("");
+  const [pendingGender, setPendingGender] = useState<string>("");
   const { user, loading } = useAuth();
 
   const { data: pet, isLoading } = useQuery<Pet>({
@@ -255,352 +257,348 @@ export default function PetProfile() {
   return (
     <>
       <Header />
-      <div className="container mx-auto px-4 pt-1 pb-4 md:py-4 max-w-3xl">
+      <div className="container mx-auto px-4 py-8 max-w-7xl relative z-10">
         <Link href="/">
-          <Button variant="ghost" className="mb-4 w-full sm:w-auto hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a] transition-all group rounded-2xl">
+          <Button variant="ghost" className="mb-8 hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a] transition-all group rounded-2xl px-6">
             <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-            Back to Home
+            Back to Dashboard
           </Button>
         </Link>
 
-        <Card className="mb-4 border border-black/[0.04] shadow-[0_4px_24px_rgba(0,0,0,0.04)] rounded-3xl overflow-hidden">
-          <CardHeader className="p-4 md:p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-2xl md:text-3xl">{pet.name}</CardTitle>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-10 w-10">
-                      <Pencil className="h-5 w-5" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="p-4 md:p-6">
-                    <DialogHeader>
-                      <DialogTitle>Edit Pet Name</DialogTitle>
-                    </DialogHeader>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const formData = new FormData(e.currentTarget);
-                        const name = formData.get('name') as string;
-                        if (name) {
-                          updatePetDetails.mutate({ name });
-                        }
-                      }}
-                      className="space-y-4"
-                    >
-                      <div className="space-y-2">
-                        <label htmlFor="name" className="text-sm font-medium">
-                          Name
-                        </label>
-                        <Input
-                          id="name"
-                          name="name"
-                          defaultValue={pet.name}
-                          required
-                          className="text-lg h-12 bg-white/50 dark:bg-black/50 backdrop-blur-sm border-2"
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Pet Identity & Photo */}
+          <div className="lg:col-span-5 space-y-6 sticky lg:top-24">
+            <Card className="border border-black/[0.04] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] rounded-[3rem] overflow-hidden bg-white/80 backdrop-blur-xl">
+              <div className="p-8 md:p-10 space-y-8">
+                {/* Pet Name Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">{pet.name}</h1>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a]">
+                          <Pencil className="h-5 w-5" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="p-8 rounded-[2.5rem]">
+                        <DialogHeader>
+                          <DialogTitle className="text-2xl font-black">Edit Pet Name</DialogTitle>
+                        </DialogHeader>
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const formData = new FormData(e.currentTarget);
+                            const name = formData.get('name') as string;
+                            if (name) {
+                              updatePetDetails.mutate({ name });
+                            }
+                          }}
+                          className="space-y-6 pt-4"
+                        >
+                          <div className="space-y-2">
+                            <label htmlFor="name" className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                              Name
+                            </label>
+                            <Input
+                              id="name"
+                              name="name"
+                              defaultValue={pet.name}
+                              required
+                              className="text-lg h-14 bg-slate-50 border-0 rounded-2xl focus-visible:ring-[#ff6b4a]"
+                            />
+                          </div>
+                          <Button type="submit" className="w-full h-14 bg-[#ff6b4a] hover:bg-[#e05a3b] rounded-2xl font-black text-lg">
+                            Save Changes
+                          </Button>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  <div className="bg-green-50 text-green-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-green-100">
+                    Active Profile
+                  </div>
+                </div>
+
+                {/* Pet Photo Section */}
+                <div className="relative group">
+                  {displayImage ? (
+                    <div className="space-y-4">
+                      <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border-4 border-white aspect-[4/3]">
+                        <img
+                          src={displayImage}
+                          alt={pet.name}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         />
+                        {isProcessing && (
+                          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-3 text-white">
+                              <div className="animate-spin h-10 w-10 border-4 border-[#ff6b4a] border-t-transparent rounded-full" />
+                              <p className="text-sm font-black uppercase tracking-widest">Updating...</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <Button type="submit" className="w-full py-6 bg-[#ff6b4a] hover:bg-[#e05a3b]">
-                        Save Changes
-                      </Button>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-          </CardHeader>
 
-          <CardContent className="p-4 md:p-6">
-            <div className="space-y-6">
-
-              {/* ── Pet photo section ── */}
-              <div className="mb-4">
-                {displayImage ? (
-                  /* ── Has image: show it + change-photo controls ── */
-                  <div className="space-y-3">
-                    <div className="relative rounded-lg overflow-hidden">
-                      <img
-                        src={displayImage}
-                        alt={pet.name}
-                        className="w-full h-auto object-cover"
-                      />
-                      {isProcessing && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
-                          <div className="flex flex-col items-center gap-2 text-white">
-                            <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full" />
-                            <p className="text-sm font-medium">Updating photo…</p>
+                      {!showChangePhoto ? (
+                        <Button
+                          variant="ghost"
+                          onClick={() => setShowChangePhoto(true)}
+                          className="w-full h-12 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 font-black hover:border-[#ff6b4a]/40 hover:text-[#ff6b4a] hover:bg-[#ff6b4a]/5 transition-all"
+                        >
+                          <Camera className="mr-2 h-5 w-5" />
+                          CHANGE PHOTO
+                        </Button>
+                      ) : (
+                        <div
+                          {...getRootProps()}
+                          className={`border-2 border-dashed rounded-[2rem] p-8 text-center cursor-pointer transition-all duration-300
+                            ${isDragActive ? "border-[#ff6b4a] bg-[#ff6b4a]/10" : "border-slate-200 hover:border-[#ff6b4a]/40 hover:bg-slate-50"}
+                            ${isProcessing ? "pointer-events-none opacity-50" : ""}`}
+                        >
+                          <input {...getInputProps()} />
+                          <div className="flex flex-col items-center gap-2">
+                            <Camera className="h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-black text-slate-600 uppercase tracking-tight">Drop to replace</p>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="mt-2 font-black text-[#ff6b4a]"
+                              onClick={(e) => { e.stopPropagation(); setShowChangePhoto(false); }}
+                            >
+                              CANCEL
+                            </Button>
                           </div>
                         </div>
                       )}
                     </div>
-
-                    {/* Change photo toggle */}
-                    {!showChangePhoto ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowChangePhoto(true)}
-                        className="w-full gap-2 border-dashed border-2 text-muted-foreground hover:text-foreground hover:border-primary/60 transition-colors"
-                      >
-                        <ImagePlus className="h-4 w-4" />
-                        Change Photo
-                      </Button>
-                    ) : (
-                      /* Inline dropzone for replacement */
-                      <div
-                        {...getRootProps()}
-                        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all duration-300
-                          ${isDragActive ? "border-[#ff6b4a] bg-[#ff6b4a]/10 scale-[1.02]" : "border-primary/50 hover:border-primary hover:bg-primary/5"}
-                          ${isProcessing ? "pointer-events-none opacity-50" : ""}`}
-                      >
-                        <input {...getInputProps()} />
-                        <div className="flex flex-col items-center gap-2">
-                          <Camera className="h-8 w-8 text-muted-foreground" />
-                          <p className="text-sm font-medium text-foreground">
-                            {isDragActive ? "Drop to replace photo" : "Drop a new photo here, or click to browse"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">JPG, PNG · up to 20MB</p>
+                  ) : (
+                    <div
+                      {...getRootProps()}
+                      className={`border-2 border-dashed rounded-[2rem] aspect-[4/3] flex items-center justify-center text-center cursor-pointer transition-all duration-300
+                        ${isDragActive ? "border-[#ff6b4a] bg-[#ff6b4a]/10" : "border-slate-200 hover:border-[#ff6b4a]/40 hover:bg-slate-50"}`}
+                    >
+                      <input {...getInputProps()} />
+                      <div className="p-8 space-y-4">
+                        <div className="w-20 h-20 rounded-full bg-[#ff6b4a]/10 flex items-center justify-center mx-auto text-[#ff6b4a]">
+                          <Camera className="h-10 w-10" />
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="mt-3 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={(e) => { e.stopPropagation(); setShowChangePhoto(false); }}
-                        >
-                          Cancel
-                        </Button>
+                        <p className="text-slate-900 font-black">Upload a photo for AI analysis</p>
+                        <p className="text-xs text-slate-400 font-medium">JPG, PNG · up to 20MB</p>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  /* ── No image: full dropzone with AI copy ── */
-                  <div
-                    {...getRootProps()}
-                    className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-all duration-300
-                      ${isDragActive ? "border-[#ff6b4a] bg-[#ff6b4a]/10 scale-[1.02]" : "border-primary/50 hover:border-primary hover:bg-primary/5"}
-                      ${isProcessing ? "pointer-events-none opacity-50" : ""}`}
-                  >
-                    <input {...getInputProps()} />
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="w-16 h-16 rounded-full bg-[#ff6b4a]/10 flex items-center justify-center mx-auto">
-                        <Camera className="h-8 w-8 text-[#ff6b4a]" />
-                      </div>
-                      <p className="text-base font-semibold text-foreground">
-                        {isDragActive ? "Release to upload!" : "Drop your pet's photo here"}
-                      </p>
-                      <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-                        Upload an image for PetCare AI to analyze and generate a complete care profile for {pet.name}.
-                      </p>
-                      <p className="text-xs text-muted-foreground">JPG, PNG · up to 20MB · or click to browse</p>
                     </div>
-                  </div>
-                )}
-              </div>
-
-              {/* ── Photo gallery ── */}
-              {pet.imageGallery && pet.imageGallery.length > 2 && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold mb-4">Photo Gallery</h3>
-                  <PhotoGallery pet={pet} />
-                </div>
-              )}
-
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Pet Mood</h3>
-                <PetMood pet={pet} />
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Details</h3>
-                <div className="space-y-4">
-                  <p className="text-muted-foreground">
-                    <span className="font-medium">Species:</span> {pet.species}
-                  </p>
-                  {pet.breed && (
-                    <p className="text-muted-foreground">
-                      <span className="font-medium">Breed:</span> {pet.breed}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <p className="text-muted-foreground">
-                      <span className="font-medium">Gender:</span> {pet.gender || 'Not specified'}
-                    </p>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="p-4 md:p-6">
-                        <DialogHeader>
-                          <DialogTitle>Edit Gender</DialogTitle>
-                        </DialogHeader>
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            const formData = new FormData(e.currentTarget);
-                            const gender = formData.get('gender') as string;
-                            if (gender) {
-                              updatePetDetails.mutate({ gender });
-                            }
-                          }}
-                          className="space-y-4"
-                        >
-                          <div className="space-y-2">
-                             <Select 
-                              defaultValue={pet.gender || ''} 
-                              onValueChange={(val) => updatePetDetails.mutate({ gender: val })}
-                            >
-                              <SelectTrigger className="w-full h-11 bg-white/50 dark:bg-black/50 backdrop-blur-sm border-2">
-                                <SelectValue placeholder="Select gender" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="male">Male</SelectItem>
-                                <SelectItem value="female">Female</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <Button type="button" onClick={() => (document.querySelector('dialog') as any)?.close()} className="w-full py-6 bg-[#ff6b4a] hover:bg-[#e05a3b]">
-                            Save Changes
-                          </Button>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-muted-foreground">
-                      <span className="font-medium">Weight:</span> {pet.weight || 'Not specified'}
-                    </p>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="p-4 md:p-6">
-                        <DialogHeader>
-                          <DialogTitle>Edit Weight</DialogTitle>
-                        </DialogHeader>
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            const formData = new FormData(e.currentTarget);
-                            const weight = formData.get('weight') as string;
-                            if (weight) {
-                              updatePetDetails.mutate({ weight });
-                            }
-                          }}
-                          className="space-y-4"
-                        >
-                          <div className="space-y-2">
-                            <label htmlFor="weight" className="text-sm font-medium">
-                              Weight (with units)
-                            </label>
-                            <Input
-                              id="weight"
-                              name="weight"
-                              defaultValue={pet.weight || ''}
-                              placeholder="e.g., 25 lbs"
-                              className="text-lg p-3"
-                            />
-                          </div>
-                          <Button type="submit" className="w-full py-6">
-                            Save Changes
-                          </Button>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-muted-foreground">
-                      <span className="font-medium">Size:</span> {pet.size || 'Not specified'}
-                    </p>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="p-4 md:p-6">
-                        <DialogHeader>
-                          <DialogTitle>Edit Size</DialogTitle>
-                        </DialogHeader>
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            const formData = new FormData(e.currentTarget);
-                            const size = formData.get('size') as string;
-                            if (size) {
-                              updatePetDetails.mutate({ size });
-                            }
-                          }}
-                          className="space-y-4"
-                        >
-                          <div className="space-y-2">
-                             <Select 
-                              defaultValue={pet.size || ''} 
-                              onValueChange={(val) => updatePetDetails.mutate({ size: val })}
-                            >
-                              <SelectTrigger className="w-full h-11 bg-white/50 dark:bg-black/50 backdrop-blur-sm border-2">
-                                <SelectValue placeholder="Select size" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Tiny">Tiny</SelectItem>
-                                <SelectItem value="Small">Small</SelectItem>
-                                <SelectItem value="Medium">Medium</SelectItem>
-                                <SelectItem value="Large">Large</SelectItem>
-                                <SelectItem value="Extra Large">Extra Large</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <Button type="button" onClick={() => (document.querySelector('dialog') as any)?.close()} className="w-full py-6 bg-[#ff6b4a] hover:bg-[#e05a3b]">
-                            Save Changes
-                          </Button>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                  {pet.lifespan && (
-                    <p className="text-muted-foreground">
-                      <span className="font-medium">Expected Lifespan:</span> {pet.lifespan}
-                    </p>
                   )}
                 </div>
+
+                {/* Basic Stats Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-5 rounded-3xl bg-slate-50/50 border border-black/[0.02]">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Species</p>
+                    <p className="font-black text-slate-900">{pet.species}</p>
+                  </div>
+                  <div className="p-5 rounded-3xl bg-slate-50/50 border border-black/[0.02]">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Breed</p>
+                    <p className="font-black text-slate-900 truncate">{pet.breed || 'Unique Mix'}</p>
+                  </div>
+                </div>
+
+                {/* Pet Mood Component */}
+                <div className="pt-4">
+                  <div className="flex items-center gap-3 px-2 mb-4">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 whitespace-nowrap">Emotional Pulse</h3>
+                    <div className="h-px w-full bg-black/[0.04]" />
+                  </div>
+                  <PetMood pet={pet} />
+                </div>
               </div>
+            </Card>
 
-              {/* ShareMissingPet component */}
-              <ShareMissingPet 
-                pet={pet} 
-                ownerContact={user?.email || "Not available"}
-              />
+            {/* Photo Gallery - Minimal version */}
+            {pet.imageGallery && pet.imageGallery.length > 2 && (
+              <Card className="border border-black/[0.04] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] rounded-[2.5rem] bg-white/80 backdrop-blur-xl p-8">
+                 <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-black text-slate-900">Gallery</h3>
+                    <span className="text-xs font-black text-[#ff6b4a]">{pet.imageGallery.length} Photos</span>
+                 </div>
+                 <PhotoGallery pet={pet} />
+              </Card>
+            )}
+          </div>
 
-              <div className="mt-4">
-                <h3 className="text-lg font-semibold mb-4">Care Management</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sections.map((section) => (
-                    <Link key={section.title} href={section.href}>
-                      <div
-                        className="w-full h-auto p-6 flex flex-col items-center gap-3 whitespace-normal rounded-2xl border border-black/[0.04] bg-white hover:shadow-lg hover:-translate-y-1 hover:border-[#ff6b4a]/20 transition-all duration-300 cursor-pointer group"
-                      >
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#ff6b4a]/10 to-[#ff8f6b]/10 flex items-center justify-center group-hover:from-[#ff6b4a] group-hover:to-[#ff8f6b] transition-all duration-300">
-                          <section.icon className="h-7 w-7 text-[#ff6b4a] group-hover:text-white transition-colors duration-300" />
+          {/* Right Column: Details & Care Management */}
+          <div className="lg:col-span-7 space-y-8">
+            {/* Quick Details Card */}
+            <Card className="border border-black/[0.04] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] rounded-[3rem] bg-white p-10 overflow-hidden relative group">
+              <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-slate-50 blur-[80px] rounded-full group-hover:bg-[#ff6b4a]/5 transition-colors duration-700 pointer-events-none" />
+              <div className="relative z-10 space-y-10">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#ff6b4a]">Core Vital Details</h3>
+                  <div className="h-px flex-1 bg-black/[0.04]" />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                  {/* Weight Detail */}
+                  <div className="flex items-center justify-between group/detail">
+                    <div className="flex items-center gap-5">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover/detail:bg-[#ff6b4a]/10 group-hover/detail:text-[#ff6b4a] transition-all">
+                        <Dumbbell className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Weight</p>
+                        <p className="text-lg font-black text-slate-900">{pet.weight || 'Not specified'}</p>
+                      </div>
+                    </div>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-[#ff6b4a]/10">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="p-8 rounded-[2.5rem]">
+                        <DialogHeader><DialogTitle className="text-2xl font-black">Edit Weight</DialogTitle></DialogHeader>
+                        <form onSubmit={(e) => { e.preventDefault(); const d = new FormData(e.currentTarget); const w = d.get('weight') as string; if(w) updatePetDetails.mutate({weight: w}); }} className="space-y-6 pt-4">
+                          <Input name="weight" defaultValue={pet.weight || ''} placeholder="e.g., 25 lbs" className="h-14 bg-slate-50 border-0 rounded-2xl" />
+                          <Button type="submit" className="w-full h-14 bg-[#ff6b4a] rounded-2xl font-black">Save Changes</Button>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+
+                  {/* Size Detail */}
+                  <div className="flex items-center justify-between group/detail">
+                    <div className="flex items-center gap-5">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover/detail:bg-[#ff6b4a]/10 group-hover/detail:text-[#ff6b4a] transition-all">
+                        <Scan className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Size Class</p>
+                        <p className="text-lg font-black text-slate-900">{pet.size || 'Not specified'}</p>
+                      </div>
+                    </div>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-[#ff6b4a]/10">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="p-8 rounded-[2.5rem]">
+                        <DialogHeader><DialogTitle className="text-2xl font-black">Edit Size</DialogTitle></DialogHeader>
+                        <div className="space-y-6 pt-4">
+                          <Select 
+                            defaultValue={pet.size || ''} 
+                            onValueChange={(val) => setPendingSize(val)}
+                          >
+                            <SelectTrigger className="h-14 bg-slate-50 border-0 rounded-2xl">
+                              <SelectValue placeholder="Select size" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Tiny">Tiny</SelectItem>
+                              <SelectItem value="Small">Small</SelectItem>
+                              <SelectItem value="Medium">Medium</SelectItem>
+                              <SelectItem value="Large">Large</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button 
+                            type="button" 
+                            onClick={() => {
+                              if (pendingSize) updatePetDetails.mutate({ size: pendingSize });
+                              (document.querySelector('[data-state="open"]')?.parentElement?.querySelector('[data-state="closed"]') as any)?.click();
+                            }} 
+                            className="w-full h-14 bg-[#ff6b4a] rounded-2xl font-black"
+                          >
+                            Save Changes
+                          </Button>
                         </div>
-                        <div className="text-center">
-                          <h3 className="font-bold text-base">{section.title}</h3>
-                          <p className="text-muted-foreground text-sm mt-1 leading-relaxed">
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+
+                  {/* Gender Detail */}
+                  <div className="flex items-center justify-between group/detail">
+                    <div className="flex items-center gap-5">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover/detail:bg-[#ff6b4a]/10 group-hover/detail:text-[#ff6b4a] transition-all">
+                        <Scan className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Gender</p>
+                        <p className="text-lg font-black text-slate-900 capitalize">{pet.gender || 'Not specified'}</p>
+                      </div>
+                    </div>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-[#ff6b4a]/10">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="p-8 rounded-[2.5rem]">
+                        <DialogHeader><DialogTitle className="text-2xl font-black">Edit Gender</DialogTitle></DialogHeader>
+                        <div className="space-y-6 pt-4">
+                          <Select 
+                            defaultValue={pet.gender || ''} 
+                            onValueChange={(val) => setPendingGender(val)}
+                          >
+                            <SelectTrigger className="h-14 bg-slate-50 border-0 rounded-2xl">
+                              <SelectValue placeholder="Select gender" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="male">Male</SelectItem>
+                              <SelectItem value="female">Female</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button 
+                            type="button" 
+                            onClick={() => {
+                              if (pendingGender) updatePetDetails.mutate({ gender: pendingGender });
+                              (document.querySelector('[data-state="open"]')?.parentElement?.querySelector('[data-state="closed"]') as any)?.click();
+                            }} 
+                            className="w-full h-14 bg-[#ff6b4a] rounded-2xl font-black"
+                          >
+                            Save Changes
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Care Management Grid */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-4 px-2">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Professional Care Suite</h3>
+                <div className="h-px flex-1 bg-black/[0.04]" />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {sections.map((section) => (
+                  <Link key={section.title} href={section.href}>
+                    <div className="group relative p-8 rounded-[2.5rem] bg-white border border-black/[0.04] shadow-[0_4px_24px_rgba(0,0,0,0.02)] hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:scale-150 transition-transform duration-700">
+                        <section.icon className="w-24 h-24" />
+                      </div>
+                      
+                      <div className="relative z-10 space-y-4">
+                        <div className="w-14 h-14 rounded-2xl bg-[#ff6b4a]/5 flex items-center justify-center text-[#ff6b4a] group-hover:bg-[#ff6b4a] group-hover:text-white transition-all duration-500 shadow-sm group-hover:shadow-orange-500/40">
+                          <section.icon className="h-7 w-7" />
+                        </div>
+                        <div className="space-y-1">
+                          <h3 className="text-xl font-black text-slate-900">{section.title}</h3>
+                          <p className="text-sm font-medium text-slate-400 leading-relaxed">
                             {section.description}
                           </p>
                         </div>
+                        <div className="pt-2 flex items-center gap-2 text-xs font-black text-[#ff6b4a] opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all duration-500">
+                          OPEN DASHBOARD <ChevronRight className="w-3 h-3" />
+                        </div>
                       </div>
-                    </Link>
-                  ))}
-                </div>
+                    </div>
+                  </Link>
+                ))}
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </>
   );

@@ -79,7 +79,7 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      console.log(`[SYNC-FINAL] Returning user ${user.id} -> SCAN:${user.freeScanUsed}, INJURY:${user.freeInjuryScanUsed}, VET:${user.vetChatCredits}`);
+      console.log(`[SYNC-FINAL] Returning user ${user.id} -> SCAN:${user.freeScanUsed}, INJURY:${user.freeInjuryScanUsed}, VET:${user.vetChatCredits}, TOKENS:${user.appTokenBalance}`);
       res.json(user);
     } catch (error) {
       console.error("Error syncing user:", error);
@@ -376,9 +376,10 @@ export function registerRoutes(app: Express): Server {
       }
 
       if (targetUser) {
-        if (Number(targetUser.freeScanUsed) >= 2) {
-          return res.status(403).json({ error: "Scan limit reached. Please unlock more scans to continue." });
+        if ((targetUser.appTokenBalance || 0) < 2) {
+          return res.status(402).json({ error: "Insufficient tokens. 2 Tokens required." });
         }
+        await storage.adjustUserTokens(targetUser.id, -2, "usage", "Pet Profile Analysis");
       }
 
       console.log("Starting image analysis with OpenAI Vision API");
@@ -495,13 +496,14 @@ export function registerRoutes(app: Express): Server {
       const user = await storage.getUser(Number(userId));
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      let isPaid = 0;
-      if (Number(user.freeInjuryScanUsed || 0) < 2) {
-        console.log(`[SCAN-INJURY] Consuming INJURY credit for user ${user.id}`);
-        isPaid = 1;
-        // Increment the count until it hits the limit of 2
-        await storage.updateUserCredits(user.id, 'freeInjuryScanUsed', (Number(user.freeInjuryScanUsed || 0) + 1));
+      let isPaid = 1;
+      
+      if ((user.appTokenBalance || 0) < 3) {
+        return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
       }
+      
+      console.log(`[SCAN-INJURY] Consuming 3 Tokens for user ${user.id}`);
+      await storage.adjustUserTokens(user.id, -3, "usage", "AI Injury Scan");
 
       const scan = await storage.createStandaloneScan({
         userId,
@@ -529,7 +531,7 @@ export function registerRoutes(app: Express): Server {
       let baseLink = "";
       
       // 1. SMART SESSIONS: Dynamic checkout for most types
-      if (type.startsWith("portrait") || type === "vet_chat_pack" || type === "injury_report") {
+      if (type.startsWith("portrait") || type === "vet_chat_pack" || type === "injury_report" || type === "credit_topup") {
         let amount = 1500; // Default $15.00
         let description = "Pet AI Feature";
 
@@ -539,6 +541,24 @@ export function registerRoutes(app: Express): Server {
         } else if (type === "vet_chat_pack") {
           amount = 1500; // $15.00
           description = "Pet AI Companion - 5 Expert AI Vet Questions";
+        } else if (type === "credit_topup") {
+          // Token Pack Pricing:
+          if (metadata?.package === "tier_1") {
+            amount = 999; // $9.99
+            description = "Pet AI Companion - Starter Pack (50 Tokens)";
+          } else if (metadata?.package === "tier_2" || metadata?.package === "100_credits") {
+            amount = 1999; // $19.99
+            description = "Pet AI Companion - Pro Pack (100 Tokens)";
+          } else if (metadata?.package === "tier_3") {
+            amount = 4999; // $49.99
+            description = "Pet AI Companion - Value Pack (400 Tokens)";
+          } else if (metadata?.package === "20_credits") {
+            amount = 500; // $5.00
+            description = "Pet AI Companion - 20 Universal Credits";
+          } else {
+            amount = 1999;
+            description = "Pet AI Companion - Pro Pack (100 Tokens)";
+          }
         } else if (type.startsWith("portrait")) {
           // If it's a simple download (portrait_hd), default to $9.00
           amount = 900;
@@ -573,7 +593,8 @@ export function registerRoutes(app: Express): Server {
           metadata: {
             type: type,
             scanId: String(metadata?.scanId || ""),
-            portraitId: String(metadata?.portraitId || "")
+            portraitId: String(metadata?.portraitId || ""),
+            package: String(metadata?.package || "")
           }
         });
 
@@ -645,7 +666,8 @@ export function registerRoutes(app: Express): Server {
       }
     }
 
-    console.log(`[Stripe-Fulfillment] Finalizing: User:${userIdPart}, Type:${typePart}, ScanID:${scanIdPart}`);
+    console.log(`[Stripe-Fulfillment] Finalizing: User:${userIdPart}, Type:${typePart}, ScanID:${scanIdPart}, PortraitID:${portraitIdPart}`);
+    console.log(`[Stripe-Fulfillment] session.metadata:`, JSON.stringify(session.metadata));
 
     // FULFILLMENT EXECUTION
     let wasFulfilled = false;
@@ -663,7 +685,32 @@ export function registerRoutes(app: Express): Server {
     } else if (userIdPart) {
       const user = await storage.getUser(Number(userIdPart));
       if (user) {
-        if (session.amount_total === 1500 || typePart === "vet_chat_pack" || typePart === "vet_chat") {
+        if (typePart === "credit_topup") {
+          const packageType = session.metadata?.package;
+          const amount = session.amount_total || 0;
+          let tokensToAdd = 100;
+          let planName = "Token Top-up";
+
+          if (packageType === "tier_1" || amount === 999) {
+            tokensToAdd = 50;
+            planName = "Starter Pack (50 Tokens)";
+          } else if (packageType === "tier_2" || amount === 1999) {
+            tokensToAdd = 100;
+            planName = "Pro Pack (100 Tokens)";
+          } else if (packageType === "tier_3" || amount === 4999) {
+            tokensToAdd = 400;
+            planName = "Value Pack (400 Tokens)";
+          } else if (packageType === "20_credits") {
+            tokensToAdd = 20;
+            planName = "Legacy 20 Pack";
+          } else if (packageType === "100_credits" || amount === 2000) {
+            tokensToAdd = 100;
+            planName = "Legacy 100 Pack";
+          }
+          
+          await storage.adjustUserTokens(user.id, tokensToAdd, "top_up", planName);
+          wasFulfilled = true;
+        } else if (session.amount_total === 1500 || typePart === "vet_chat_pack" || typePart === "vet_chat") {
           await storage.updateUserCredits(user.id, 'vetChatCredits', (user.vetChatCredits || 0) + 5);
           wasFulfilled = true;
         } else if (typePart === "home_analysis") {
@@ -1075,10 +1122,13 @@ Pet Owner: ${message}`
       const user = await storage.getUser(Number(userId));
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      // Check for available credits
-      if ((user.vetChatCredits ?? 0) <= 0) {
-        return res.status(403).json({ error: "No chat credits remaining" });
+      // API Token System Check (3 credits per message)
+      if ((user.appTokenBalance || 0) < 3) {
+        return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
       }
+      
+      console.log(`[CHAT] Consuming 3 Tokens for user ${user.id}`);
+      await storage.adjustUserTokens(user.id, -3, "usage", "AI Vet Consultation");
 
       if (!message) {
         return res.status(400).json({ error: "No message provided" });
@@ -1705,12 +1755,24 @@ Pet Owner: ${message}`
   // Personalized nutrition analysis endpoint
   app.post("/api/nutrition/analyze", async (req, res) => {
     try {
-      const { breed, weight, activityLevel, species, age } = req.body;
+      const { breed, weight, activityLevel, species, age, userId } = req.body;
       
       if (!breed || !weight || !activityLevel || !species) {
         return res.status(400).json({ 
           error: "Missing required fields: breed, weight, activityLevel, and species are required" 
         });
+      }
+
+      if (userId !== undefined && userId !== null) {
+        const user = await storage.getUser(Number(userId));
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        if ((user.appTokenBalance || 0) < 3) {
+          return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
+        }
+        
+        console.log(`[NUTRITION] Consuming 3 Tokens for user ${user.id}`);
+        await storage.adjustUserTokens(user.id, -3, "usage", "AI Nutrition Analysis");
       }
 
       if (!process.env.OPENAI_API_KEY) {
@@ -1732,6 +1794,52 @@ Pet Owner: ${message}`
         error: "Failed to generate nutrition analysis",
         details: error instanceof Error ? error.message : String(error),
       });
+    }
+  });
+  
+  // Generic token deduction endpoint
+  app.post("/api/tokens/deduct", async (req, res) => {
+    try {
+      const { userId, amount, reason } = req.body;
+      if (!userId || !amount) {
+        return res.status(400).json({ error: "userId and amount are required" });
+      }
+
+      const user = await storage.getUser(Number(userId));
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if ((user.appTokenBalance || 0) < amount) {
+        return res.status(402).json({ error: `Insufficient tokens. ${amount} Tokens required.` });
+      }
+
+      console.log(`[TOKEN-CONSUME] Consuming ${amount} Tokens for user ${user.id}. Reason: ${reason || 'Generic'}`);
+      const updatedUser = await storage.adjustUserTokens(user.id, -amount, "usage", reason || "Token Deduction");
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error deducting tokens:", error);
+      res.status(500).json({ error: "Failed to deduct tokens" });
+    }
+  });
+
+  app.get("/api/transactions", async (req, res) => {
+    try {
+      const userId = Number(req.query.userId);
+      if (!userId) return res.status(400).send("userId required");
+      const transactions = await storage.getTokenTransactions(userId);
+      res.json(transactions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch transactions" });
+    }
+  });
+
+  app.get("/api/subscriptions/latest", async (req, res) => {
+    try {
+      const userId = Number(req.query.userId);
+      if (!userId) return res.status(400).send("userId required");
+      const sub = await storage.getLatestSubscription(userId);
+      res.json(sub || null);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch subscription" });
     }
   });
 
@@ -2068,6 +2176,15 @@ Always respond in valid JSON format.`
       if (!imageBase64 || !style || !userId) {
         return res.status(400).json({ error: "Image, style, and userId are required" });
       }
+
+      const user = await storage.getUser(Number(userId));
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if ((user.appTokenBalance || 0) < 3) {
+        return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
+      }
+
+      await storage.adjustUserTokens(user.id, -3, "usage", "AI Portrait Generation");
 
       if (!process.env.OPENAI_API_KEY) {
         return res.status(500).json({ error: "OpenAI API is not configured" });

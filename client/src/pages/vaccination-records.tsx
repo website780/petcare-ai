@@ -14,7 +14,7 @@ import { type Pet } from "@shared/schema";
 import { Header } from "@/components/Header";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { format, addMonths, addYears, isPast, isFuture, differenceInDays } from "date-fns";
+import { format, addMonths, addYears, isPast, isFuture, differenceInDays, isValid } from "date-fns";
 
 interface VaccinationRecord {
   name: string;
@@ -163,6 +163,13 @@ export default function VaccinationRecordsPage() {
       toast({ variant: "destructive", title: "Failed to save vaccination record" });
     }
   });
+
+  const safeFormatDate = (dateStr: string | undefined | null, formatStr: string = "MMM d, yyyy") => {
+    if (!dateStr) return "N/A";
+    const date = new Date(dateStr);
+    if (!isValid(date)) return "Invalid Date";
+    return format(date, formatStr);
+  };
 
   const parseRecords = (records: string[] | null | undefined): VaccinationRecord[] => {
     if (!records || records.length === 0) return [];
@@ -436,7 +443,7 @@ export default function VaccinationRecordsPage() {
                       <div className="bg-white/5 p-6 rounded-[2.5rem] border border-white/10 flex flex-col items-center justify-center min-w-[200px]">
                          <Calendar className="w-6 h-6 text-[#ff6b4a] mb-2" />
                          <div className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">Booster Horizon</div>
-                         <div className="text-sm font-black">{format(new Date(pet.nextVaccinationDue), "MMM d, yyyy")}</div>
+                         <div className="text-sm font-black">{safeFormatDate(pet.nextVaccinationDue)}</div>
                       </div>
                    )}
                 </div>
@@ -515,13 +522,13 @@ export default function VaccinationRecordsPage() {
                                        </div>
                                        <div className="text-right">
                                           <div className="text-[9px] font-black uppercase text-muted-foreground opacity-40">Administered</div>
-                                          <div className="text-xs font-black">{record.dateGiven ? format(new Date(record.dateGiven), "MMM d, yyyy") : 'Incomplete'}</div>
+                                          <div className="text-xs font-black">{record.dateGiven ? safeFormatDate(record.dateGiven) : 'Incomplete'}</div>
                                        </div>
                                     </div>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-black/[0.02]">
                                        {[
                                           { label: "Clinician", value: record.veterinarian || 'Unspecified' },
-                                          { label: "Booster Due", value: record.nextDue ? format(new Date(record.nextDue), "MM/DD/YY") : 'N/A' },
+                                          { label: "Booster Due", value: record.nextDue ? safeFormatDate(record.nextDue, "MM/dd/yy") : 'N/A' },
                                           { label: "Protects", value: record.protectsAgainst || 'Broad Spectrum', col: "col-span-2" }
                                        ].map((item, i) => (
                                           <div key={i} className={item.col}>

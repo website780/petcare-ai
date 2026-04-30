@@ -191,12 +191,13 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
 
   const onDrop = async (acceptedFiles: File[]) => {
     try {
-      if (Number(user?.freeScanUsed || 0) >= 2) {
+      if ((user?.appTokenBalance || 0) < 2) {
         toast({
           variant: "destructive",
-          title: "Scan limit reached",
-          description: "You have used your scans. Please unlock more to continue.",
+          title: "Insufficient Tokens",
+          description: "This analysis requires 2 Tokens. Let's top up!",
         });
+        // We can optionally redirect them or just let the toast inform them
         return;
       }
 
@@ -350,8 +351,8 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
       "image/*": [".jpeg", ".jpg", ".png"],
     },
     maxFiles: 1,
-    noClick: Number(user?.freeScanUsed || 0) >= 2,
-    noKeyboard: Number(user?.freeScanUsed || 0) >= 2,
+    noClick: false,
+    noKeyboard: false,
   });
 
   const isLoading = analyzeImage.isPending || createPet.isPending;

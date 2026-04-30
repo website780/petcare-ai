@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Share2, Image } from "lucide-react";
 import { Pet } from "@shared/schema";
-import { ShareAchievement } from "./ShareAchievement";
+
 
 interface PhotoGalleryProps {
   pet: Pet;
@@ -67,11 +67,16 @@ export function PhotoGallery({ pet }: PhotoGalleryProps) {
                   className="absolute inset-0 w-full h-full object-cover"
                 />
               </div>
-              <ShareAchievement
-                pet={pet}
-                shareImage={selectedImage}
-                achievement="Check out this photo!"
-              />
+              <div className="flex justify-center pt-2">
+                <Button className="w-full bg-[#ff6b4a] hover:bg-[#e05a3b]" onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = selectedImage;
+                  link.download = `${pet.name}-photo.jpg`;
+                  link.click();
+                }}>
+                  Download Photo
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

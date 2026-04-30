@@ -32,7 +32,7 @@ export default function SuccessPage() {
           console.log("[Success] Verifying by Email Forensics:", auth.currentUser.email);
           
           // Try types in order of likelihood
-          const typesToTry = ["injury_report", "vet_chat_pack", "portrait_hd", "portrait_print", "home_analysis"];
+          const typesToTry = ["credit_topup", "injury_report", "vet_chat_pack", "portrait_hd", "portrait_print", "home_analysis"];
           let foundData = null;
 
           for (const type of typesToTry) {
@@ -91,6 +91,7 @@ export default function SuccessPage() {
       case "portrait_print":
       case "portrait": return { label: "Go to AI Portraits", href: "/pet-portraits" };
       case "home_analysis": return { label: "Go to Injury Scanner", href: "/scan" };
+      case "credit_topup": return { label: "Return to Dashboard", href: "/" };
       default: return { label: "Return to Dashboard", href: "/" };
     }
   };
@@ -110,7 +111,7 @@ export default function SuccessPage() {
         </div>
         
         <h1 className="text-4xl font-bold mb-4 tracking-tight">
-          {verifying ? "Verifying Transaction..." : "Masterpiece Unlocked!"}
+          {verifying ? "Verifying Transaction..." : (purchaseType === "credit_topup" ? "Tokens Added!" : "Feature Unlocked!")}
         </h1>
         
         <p className="text-lg text-muted-foreground mb-12 text-center max-w-md mx-auto leading-relaxed">

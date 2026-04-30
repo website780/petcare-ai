@@ -10,9 +10,10 @@ export const users = pgTable("users", {
   displayName: text("display_name"),
   photoURL: text("photo_url"),
   firebaseId: text("firebase_id").notNull().unique(),
-  freeScanUsed: integer("free_scan_used").default(0), // 0: no, 1: yes (Normal Scan)
-  freeInjuryScanUsed: integer("free_injury_scan_used").default(0), // 0: no, 1: yes (Injury Scan)
-  vetChatCredits: integer("vet_chat_credits").default(2), // Starts with 2 free questions
+  appTokenBalance: integer("app_token_balance").default(0), // Universal Credit System
+  freeScanUsed: integer("free_scan_used").default(0), // Legacy
+  freeInjuryScanUsed: integer("free_injury_scan_used").default(0), // Legacy
+  vetChatCredits: integer("vet_chat_credits").default(2), // Legacy
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -463,3 +464,32 @@ export const insertStandaloneVetChatSchema = createInsertSchema(standaloneVetCha
 
 export type StandaloneScan = typeof standaloneScans.$inferSelect;
 export type StandaloneVetChat = typeof standaloneVetChats.$inferSelect;
+
+// Token Transactions table
+export const tokenTransactions = pgTable("token_transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  amount: integer("amount").notNull(),
+  type: text("type").notNull(), // 'usage', 'top_up'
+  description: text("description").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Subscriptions table
+export const subscriptions = pgTable("subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  type: text("type").notNull(), 
+  status: text("status").notNull(), 
+  startDate: timestamp("start_date").defaultNow(),
+  endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTokenTransactionSchema = createInsertSchema(tokenTransactions).omit({ id: true, createdAt: true });
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, createdAt: true });
+
+export type TokenTransaction = typeof tokenTransactions.$inferSelect;
+export type InsertTokenTransaction = z.infer<typeof insertTokenTransactionSchema>;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;

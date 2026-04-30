@@ -11,7 +11,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Pet } from "@shared/schema";
-import { Scissors, Bath, Brush, Bone, Video } from "lucide-react";
+import { Scissors, Bath, Brush, Bone, Video, Check } from "lucide-react";
 import { searchYouTubeVideos } from "@/lib/youtube";
 import { useQuery } from "@tanstack/react-query";
 
