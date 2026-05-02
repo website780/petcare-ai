@@ -313,7 +313,7 @@ export function PetMood({ pet, onMoodUpdate }: PetMoodProps) {
               <Camera className="h-4 w-4" />
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-xl">
+          <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto rounded-[2rem] p-6">
             <DialogHeader>
               <DialogTitle>Capture {pet.name}'s Mood</DialogTitle>
               <DialogDescription>

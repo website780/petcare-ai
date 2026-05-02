@@ -172,7 +172,7 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
     checkReminders();
     const interval = setInterval(checkReminders, 60000);
     return () => clearInterval(interval);
-  }, [reminders, toast, pet.name, lastNotificationCheck]);
+  }, [reminders, toast, pet.name]);
 
   const form = useForm<FeedingTimeFormData>({
     defaultValues: {

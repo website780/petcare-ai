@@ -34,12 +34,12 @@ export function PhotoGallery({ pet }: PhotoGalleryProps) {
             <img
               src={imageUrl}
               alt={`${pet.name}'s photo ${index + 1}`}
-              className="w-full h-full object-cover rounded-lg"
+              className="w-full h-full object-cover rounded-2xl"
             />
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center rounded-2xl">
               <Button
-                variant="outline"
-                className="text-white border-white hover:text-white"
+                variant="default"
+                className="bg-white hover:bg-[#ff6b4a] text-black hover:text-white font-black rounded-2xl h-11 px-5 shadow-xl border-none transition-all hover:scale-105"
                 onClick={() => {
                   setSelectedImage(imageUrl);
                   setShowShareDialog(true);

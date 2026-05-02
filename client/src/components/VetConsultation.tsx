@@ -151,7 +151,7 @@ export function VetConsultation({ pet }: VetConsultationProps) {
     checkUpcomingConsultations();
     const interval = setInterval(checkUpcomingConsultations, 60000);
     return () => clearInterval(interval);
-  }, [consultations, toast, pet.name, lastNotificationCheck]);
+  }, [consultations, toast, pet.name]);
   
   // Function to process search results with sorting
   const processSearchResults = (results: VetLocation[]) => {

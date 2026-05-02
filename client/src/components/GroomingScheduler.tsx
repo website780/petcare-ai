@@ -161,7 +161,7 @@ export function GroomingScheduler({ pet }: GroomingSchedulerProps) {
     checkUpcomingAppointments();
     const interval = setInterval(checkUpcomingAppointments, 60000);
     return () => clearInterval(interval);
-  }, [appointments, toast, pet.name, lastNotificationCheck]);
+  }, [appointments, toast, pet.name]);
 
   // Function to process search results with sorting only
   const processSearchResults = (results: GroomerLocation[]) => {

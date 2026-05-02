@@ -11,12 +11,11 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Production-grade connection pool (Optimized for 100k+ users)
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection fails
+  connectionTimeoutMillis: 30000, // Reasonable timeout to avoid immediate ErrorEvent crashes
 });
 
 export const db = drizzle({ client: pool, schema });
