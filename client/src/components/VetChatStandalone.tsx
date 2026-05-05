@@ -847,12 +847,12 @@ export function VetChatStandalone() {
           <div className="lg:col-span-2 space-y-4">
             <Card className="h-[600px] flex flex-col border border-black/[0.06] rounded-3xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
               <CardHeader className="bg-gradient-to-r from-[#0a0a0a] to-[#1a1a2e] text-white py-4 shrink-0">
-                <div className="flex items-center justify-between w-full">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-3 sm:gap-4">
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                     Live AI Vet Chat
                   </CardTitle>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Button 
                       variant="outline" 
                       size="sm" 

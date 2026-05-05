@@ -265,9 +265,9 @@ export default function PetProfile() {
           </Button>
         </Link>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* Left Column: Pet Identity & Photo */}
-          <div className="lg:col-span-5 space-y-6 sticky lg:top-24">
+          <div className="space-y-6">
             <Card className="border border-black/[0.04] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] rounded-[3rem] overflow-hidden bg-white/80 backdrop-blur-xl">
               <div className="p-8 md:p-10 space-y-8">
                 {/* Pet Name Header */}
@@ -390,6 +390,25 @@ export default function PetProfile() {
                   )}
                 </div>
 
+                {/* Photo Gallery - Minimal version */}
+                {pet.imageGallery && pet.imageGallery.length > 2 && (
+                  <div className="pt-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-black text-slate-900">Gallery</h3>
+                      <span className="text-xs font-black text-[#ff6b4a]">{pet.imageGallery.length} Photos</span>
+                    </div>
+                    <PhotoGallery pet={pet} />
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+
+          {/* Right Column: Vitals, Mood, and Core Details */}
+          <div className="space-y-6">
+            <Card className="border border-black/[0.04] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] rounded-[3rem] bg-white p-10 overflow-hidden relative group">
+              <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-slate-50 blur-[80px] rounded-full group-hover:bg-[#ff6b4a]/5 transition-colors duration-700 pointer-events-none" />
+              <div className="relative z-10 space-y-10">
                 {/* Basic Stats Grid */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-5 rounded-3xl bg-slate-50/50 border border-black/[0.02]">
@@ -403,40 +422,20 @@ export default function PetProfile() {
                 </div>
 
                 {/* Pet Mood Component */}
-                <div className="pt-4">
+                <div>
                   <div className="flex items-center gap-3 px-2 mb-4">
                     <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 whitespace-nowrap">Emotional Pulse</h3>
                     <div className="h-px w-full bg-black/[0.04]" />
                   </div>
                   <PetMood pet={pet} />
                 </div>
-              </div>
-            </Card>
 
-            {/* Photo Gallery - Minimal version */}
-            {pet.imageGallery && pet.imageGallery.length > 2 && (
-              <Card className="border border-black/[0.04] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] rounded-[2.5rem] bg-white/80 backdrop-blur-xl p-8">
-                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-black text-slate-900">Gallery</h3>
-                    <span className="text-xs font-black text-[#ff6b4a]">{pet.imageGallery.length} Photos</span>
-                 </div>
-                 <PhotoGallery pet={pet} />
-              </Card>
-            )}
-          </div>
-
-          {/* Right Column: Details & Care Management */}
-          <div className="lg:col-span-7 space-y-8">
-            {/* Quick Details Card */}
-            <Card className="border border-black/[0.04] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] rounded-[3rem] bg-white p-10 overflow-hidden relative group">
-              <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-slate-50 blur-[80px] rounded-full group-hover:bg-[#ff6b4a]/5 transition-colors duration-700 pointer-events-none" />
-              <div className="relative z-10 space-y-10">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 pt-2">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#ff6b4a]">Core Vital Details</h3>
                   <div className="h-px flex-1 bg-black/[0.04]" />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {/* Weight Detail */}
                   <div className="flex items-center justify-between group/detail">
                     <div className="flex items-center gap-5">
@@ -562,41 +561,6 @@ export default function PetProfile() {
                 </div>
               </div>
             </Card>
-
-            {/* Care Management Grid */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-4 px-2">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Professional Care Suite</h3>
-                <div className="h-px flex-1 bg-black/[0.04]" />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {sections.map((section) => (
-                  <Link key={section.title} href={section.href}>
-                    <div className="group relative p-8 rounded-[2.5rem] bg-white border border-black/[0.04] shadow-[0_4px_24px_rgba(0,0,0,0.02)] hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer overflow-hidden">
-                      <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:scale-150 transition-transform duration-700">
-                        <section.icon className="w-24 h-24" />
-                      </div>
-                      
-                      <div className="relative z-10 space-y-4">
-                        <div className="w-14 h-14 rounded-2xl bg-[#ff6b4a]/5 flex items-center justify-center text-[#ff6b4a] group-hover:bg-[#ff6b4a] group-hover:text-white transition-all duration-500 shadow-sm group-hover:shadow-orange-500/40">
-                          <section.icon className="h-7 w-7" />
-                        </div>
-                        <div className="space-y-1">
-                          <h3 className="text-xl font-black text-slate-900">{section.title}</h3>
-                          <p className="text-sm font-medium text-slate-400 leading-relaxed">
-                            {section.description}
-                          </p>
-                        </div>
-                        <div className="pt-2 flex items-center gap-2 text-xs font-black text-[#ff6b4a] opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all duration-500">
-                          OPEN DASHBOARD <ChevronRight className="w-3 h-3" />
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </div>

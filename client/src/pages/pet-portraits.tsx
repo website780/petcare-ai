@@ -416,7 +416,7 @@ export default function PetPortraits() {
                     <p className="text-slate-500 font-medium">Choose how you want to reimagine your pet.</p>
                   </div>
 
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {STYLES.map((style) => (
                       <motion.div
                         key={style.id}
@@ -451,18 +451,18 @@ export default function PetPortraits() {
                       size="lg"
                       disabled={!selectedStyle || isGenerating}
                       onClick={handleGenerate}
-                      className="h-20 px-16 group relative overflow-hidden rounded-[2.5rem] bg-[#0F172A] text-white shadow-[0_32px_64px_-12px_rgba(15,23,42,0.4)] hover:shadow-[0_48px_80px_-12px_rgba(15,23,42,0.5)] transition-all active:scale-95"
+                      className="w-full max-w-xs sm:max-w-sm sm:w-auto h-14 sm:h-20 px-4 sm:px-8 lg:px-16 group relative overflow-hidden rounded-[2.5rem] bg-[#0F172A] text-white shadow-[0_32px_64px_-12px_rgba(15,23,42,0.4)] hover:shadow-[0_48px_80px_-12px_rgba(15,23,42,0.5)] transition-all active:scale-95"
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-500 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                      <div className="relative z-10 flex items-center gap-4 text-xl font-black">
+                      <div className="relative z-10 flex items-center justify-center gap-2 sm:gap-4 text-xs sm:text-lg lg:text-xl font-black">
                         {isGenerating ? (
                           <>
-                            <Loader2 className="w-6 h-6 animate-spin" />
+                            <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
                             <span>ARTIST IS WORKING...</span>
                           </>
                         ) : (
                           <>
-                            <Wand2 className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+                            <Wand2 className="w-5 h-5 sm:w-6 sm:h-6 group-hover:rotate-12 transition-transform" />
                             <span>🪙 3 Tokens - CREATE MASTERPIECE</span>
                           </>
                         )}
@@ -515,11 +515,11 @@ export default function PetPortraits() {
                   </Card>
                 </div>
 
-                <div className="w-full lg:w-[400px] space-y-6">
-                  <div className="p-8 bg-[#0F172A] rounded-[3rem] text-white shadow-2xl relative overflow-hidden flex flex-col justify-between h-full">
+                <div className="w-full lg:w-[400px] lg:pt-[56px]">
+                  <div className="p-8 bg-[#0F172A] rounded-[3rem] text-white shadow-2xl relative overflow-hidden flex flex-col gap-4">
                     <div className="absolute top-[-20%] right-[-20%] w-64 h-64 bg-purple-500/20 blur-[80px] rounded-full" />
                     
-                    <div className="relative z-10 space-y-8">
+                    <div className="relative z-10 space-y-6">
                       {hasPurchasedDownload ? (
                         <div className="space-y-6">
                           <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
@@ -553,54 +553,62 @@ export default function PetPortraits() {
                         </div>
                       )}
 
-                      <Separator className="bg-white/10" />
+                      {/* Physical print section hidden for now */}
+                      {false && (
+                        <>
+                          <Separator className="bg-white/10" />
 
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-3">
-                          <Printer className="w-5 h-5 text-amber-500" />
-                          <h5 className="font-black text-sm uppercase tracking-widest">Physical Printing</h5>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-3">
-                          {PRINT_SIZES.slice(0, 4).map(size => (
-                            <div 
-                              key={size.id}
-                              onClick={() => setSelectedPrintSize(size.id)}
-                              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer text-left ${
-                                selectedPrintSize === size.id ? "border-amber-500 bg-amber-500/10" : "border-white/5 hover:border-white/10"
-                              }`}
-                            >
-                              <span className="text-xs font-black block mb-1">{size.label}</span>
-                              <span className="text-sm font-medium text-slate-400">${size.price}</span>
+                          <div className="space-y-6">
+                            <div className="flex items-center gap-3">
+                              <Printer className="w-5 h-5 text-amber-500" />
+                              <h5 className="font-black text-sm uppercase tracking-widest">Physical Printing</h5>
                             </div>
-                          ))}
-                        </div>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                              {PRINT_SIZES.slice(0, 4).map(size => (
+                                <div 
+                                  key={size.id}
+                                  onClick={() => setSelectedPrintSize(size.id)}
+                                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer text-left ${
+                                    selectedPrintSize === size.id ? "border-amber-500 bg-amber-500/10" : "border-white/5 hover:border-white/10"
+                                  }`}
+                                >
+                                  <span className="text-xs font-black block mb-1">{size.label}</span>
+                                  <span className="text-sm font-medium text-slate-400">${size.price}</span>
+                                </div>
+                              ))}
+                            </div>
 
+                            <Button 
+                              onClick={() => handleCheckoutSubmit("print", selectedPrintSize)} 
+                              className="w-full h-16 rounded-2xl bg-white/10 border border-white/20 text-white hover:bg-white/20 font-black gap-3 text-sm transition-all shadow-lg backdrop-blur-md"
+                            >
+                               ORDER PHYSICAL PRINT
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Restart & Watermark download buttons hidden for now */}
+                    {false && (
+                      <div className="relative z-10 pt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
                         <Button 
-                          onClick={() => handleCheckoutSubmit("print", selectedPrintSize)} 
-                          className="w-full h-16 rounded-2xl bg-white/10 border border-white/20 text-white hover:bg-white/20 font-black gap-3 text-sm transition-all shadow-lg backdrop-blur-md"
+                          variant="ghost" 
+                          className="text-slate-400 hover:text-white hover:bg-white/10 w-full sm:w-auto h-12" 
+                          onClick={resetAll}
                         >
-                           ORDER PHYSICAL PRINT
+                          RESTART
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          className="text-slate-400 hover:text-white hover:bg-white/10 w-full sm:w-auto h-12 text-xs whitespace-normal text-center flex items-center justify-center gap-1 leading-tight sm:whitespace-nowrap" 
+                          onClick={handleDownloadWithWatermark}
+                        >
+                          🪙 3 Tokens - DOWNLOAD PREVIEW
                         </Button>
                       </div>
-                    </div>
-
-                    <div className="relative z-10 pt-8 flex items-center justify-center gap-4">
-                      <Button 
-                        variant="ghost" 
-                        className="text-slate-400 hover:text-white hover:bg-white/10" 
-                        onClick={resetAll}
-                      >
-                        RESTART
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        className="text-slate-400 hover:text-white hover:bg-white/10" 
-                        onClick={handleDownloadWithWatermark}
-                      >
-                        🪙 3 Tokens - DOWNLOAD PREVIEW
-                      </Button>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

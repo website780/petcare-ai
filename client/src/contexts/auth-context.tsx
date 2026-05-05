@@ -25,8 +25,15 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<ExtendedUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<ExtendedUser | null>(() => {
+    try {
+      const cached = localStorage.getItem("cached_user");
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(!user);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -57,12 +64,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           };
 
           setUser(extendedUser);
+          localStorage.setItem("cached_user", JSON.stringify(extendedUser));
         } catch (error) {
           console.error("Error syncing user with database:", error);
           setUser(firebaseUser);
         }
       } else {
         setUser(null);
+        localStorage.removeItem("cached_user");
       }
 
       setLoading(false);
@@ -135,17 +144,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      setUser(null);
+      localStorage.removeItem("cached_user");
       await signOut(auth);
+      window.location.href = "/";
     } catch (error) {
       console.error("Error signing out:", error);
-      toast({
-        variant: "destructive",
-        title: "Error signing out",
-        description: "Please try again",
-      });
-      throw error;
+      setUser(null);
+      localStorage.removeItem("cached_user");
+      window.location.href = "/";
     }
-  }, [toast]);
+  }, []);
 
   const refreshUser = useCallback(async () => {
     if (!auth.currentUser) return;
@@ -160,26 +169,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const dbUser = await response.json();
         
         setUser(prev => {
-          if (!prev) return {
-            ...auth.currentUser!,
-            dbId: dbUser.id,
-            freeScanUsed: Number(dbUser.freeScanUsed ?? 0),
-            freeInjuryScanUsed: Number(dbUser.freeInjuryScanUsed ?? 0),
-            vetChatCredits: Number(dbUser.vetChatCredits ?? 2),
-            appTokenBalance: Number(dbUser.appTokenBalance ?? 0)
-          };
-
-          return {
-            ...prev,
-            dbId: dbUser.id,
-            email: dbUser.email || prev.email,
-            displayName: dbUser.displayName || prev.displayName,
-            photoURL: dbUser.photoURL || prev.photoURL,
-            freeScanUsed: dbUser.freeScanUsed !== undefined && dbUser.freeScanUsed !== null ? Number(dbUser.freeScanUsed) : prev.freeScanUsed,
-            freeInjuryScanUsed: dbUser.freeInjuryScanUsed !== undefined && dbUser.freeInjuryScanUsed !== null ? Number(dbUser.freeInjuryScanUsed) : prev.freeInjuryScanUsed,
-            vetChatCredits: dbUser.vetChatCredits !== undefined && dbUser.vetChatCredits !== null ? Number(dbUser.vetChatCredits) : prev.vetChatCredits,
-            appTokenBalance: dbUser.appTokenBalance !== undefined && dbUser.appTokenBalance !== null ? Number(dbUser.appTokenBalance) : prev.appTokenBalance
-          };
+          let nextState: ExtendedUser;
+          if (!prev) {
+            nextState = {
+              ...auth.currentUser!,
+              dbId: dbUser.id,
+              freeScanUsed: Number(dbUser.freeScanUsed ?? 0),
+              freeInjuryScanUsed: Number(dbUser.freeInjuryScanUsed ?? 0),
+              vetChatCredits: Number(dbUser.vetChatCredits ?? 2),
+              appTokenBalance: Number(dbUser.appTokenBalance ?? 0)
+            };
+          } else {
+            nextState = {
+              ...prev,
+              dbId: dbUser.id,
+              email: dbUser.email || prev.email,
+              displayName: dbUser.displayName || prev.displayName,
+              photoURL: dbUser.photoURL || prev.photoURL,
+              freeScanUsed: dbUser.freeScanUsed !== undefined && dbUser.freeScanUsed !== null ? Number(dbUser.freeScanUsed) : prev.freeScanUsed,
+              freeInjuryScanUsed: dbUser.freeInjuryScanUsed !== undefined && dbUser.freeInjuryScanUsed !== null ? Number(dbUser.freeInjuryScanUsed) : prev.freeInjuryScanUsed,
+              vetChatCredits: dbUser.vetChatCredits !== undefined && dbUser.vetChatCredits !== null ? Number(dbUser.vetChatCredits) : prev.vetChatCredits,
+              appTokenBalance: dbUser.appTokenBalance !== undefined && dbUser.appTokenBalance !== null ? Number(dbUser.appTokenBalance) : prev.appTokenBalance
+            };
+          }
+          localStorage.setItem("cached_user", JSON.stringify(nextState));
+          return nextState;
         });
       }
     } catch (error) {

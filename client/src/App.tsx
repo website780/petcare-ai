@@ -28,6 +28,7 @@ const CancelPage = lazy(() => import("@/pages/cancel"));
 const PricingPage = lazy(() => import("@/pages/pricing"));
 const UsageHistoryPage = lazy(() => import("@/pages/usage-history"));
 const FAQPage = lazy(() => import("@/pages/faq"));
+const AdminPage = lazy(() => import("@/pages/admin"));
 
 function PrivateRoute({ component: Component, ...rest }: { component: React.ComponentType<any>, [key: string]: any }) {
   const { user, loading } = useAuth();
@@ -131,6 +132,7 @@ function Router() {
         <Route path="/pricing" component={() => <PrivateRoute component={PricingPage} />} />
         <Route path="/usage" component={() => <PrivateRoute component={UsageHistoryPage} />} />
         <Route path="/faq" component={FAQPage} />
+        <Route path="/admin" component={AdminPage} />
         
         <Route component={NotFound} />
       </Switch>

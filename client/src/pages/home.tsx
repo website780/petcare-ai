@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
   Upload, Loader2, Heart, LogOut, Sparkles, PawPrint, ArrowLeft, 
-  Camera, Stethoscope, Activity, HeartPulse, ShieldCheck, ChevronRight, Plus
+  Camera, Stethoscope, Activity, HeartPulse, ShieldCheck, ChevronRight, Plus, CheckCircle2
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { SiFacebook } from "react-icons/si";
@@ -395,46 +395,263 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
     <div className="min-h-[calc(100vh-80px)] md:min-h-screen relative flex flex-col">
       
       {!user ? (
-        <div className="flex-1 flex items-center justify-center w-full py-8 md:py-12 relative z-10">
-          <div className="w-[92%] max-w-5xl mx-auto px-6 md:px-12 py-16 md:py-20 flex flex-col items-center text-center bg-white/60 backdrop-blur-xl border border-white/60 shadow-[0_8px_40px_0_rgba(0,0,0,0.06)] rounded-[3rem]">
+        <div className="flex-1 flex flex-col items-center w-full py-8 md:py-16 relative z-10 space-y-16">
+          {/* Main Hero & CTA */}
+          <div className="w-[92%] max-w-5xl mx-auto px-6 md:px-12 py-16 md:py-24 flex flex-col items-center text-center bg-white/60 backdrop-blur-xl border border-white/60 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.06)] rounded-[3rem]">
+            <span className="text-xs md:text-sm font-black tracking-[0.3em] uppercase text-[#ff6b4a] bg-[#ff6b4a]/5 border border-[#ff6b4a]/10 rounded-full px-6 py-2 mb-8 animate-pulse">
+              Next-Gen AI Companion
+            </span>
             <h1 className="text-5xl md:text-7xl font-black mb-6 tracking-[-0.04em] text-[#0a0a0a] cursor-default leading-[1.05]">
-              Take Care of your <span className="bg-gradient-to-r from-[#ff6b4a] to-[#ff8f6b] bg-clip-text text-transparent">Best Friend</span>
+              Take Care of your <span className="bg-gradient-to-r from-[#ff6b4a] to-[#ff8f6b] bg-clip-text text-transparent animate-gradient-x">Best Friend</span>
             </h1>
-          <p className="text-lg text-muted-foreground mb-12 max-w-xl leading-relaxed">
-            AI-powered wellness tracking, injury scanning, and veterinary consultations — all in one place.
-          </p>
+            <p className="text-lg text-muted-foreground mb-12 max-w-2xl leading-relaxed font-medium">
+              Experience the future of pet care with instant AI-powered wellness tracking, digital injury scanning, 24/7 expert veterinary conversations, and artistic masterpiece generations.
+            </p>
 
-          <div className="w-full max-w-md mb-12 relative group cursor-default">
-            <div className="absolute inset-0 bg-[#ff6b4a]/10 blur-[60px] rounded-full scale-75" />
-            <img
-              src={petCareImage}
-              alt="Pet care illustration"
-              className="w-full h-auto relative z-10 drop-shadow-2xl animate-float"
-            />
+            {/* Core Sign-in CTAs */}
+            <div className="flex flex-col sm:flex-row gap-5 w-full max-w-lg relative z-10 mt-4 justify-center">
+              <Button
+                size="lg"
+                onClick={signInWithGoogle}
+                className="flex-1 text-base px-6 py-7 bg-[#0F172A] hover:bg-[#1e293b] text-white border-transparent shadow-[0_12px_32px_-4px_rgba(15,23,42,0.3)] hover:shadow-[0_16px_40px_-4px_rgba(15,23,42,0.4)] hover:scale-[1.02] active:scale-95 transition-all duration-300 ease-out rounded-2xl group flex items-center justify-center font-black"
+              >
+                <Heart className="mr-3 h-5 w-5 text-red-500 group-hover:scale-125 transition-transform duration-300" />
+                Sign in with Google
+              </Button>
+
+              <Button
+                size="lg"
+                onClick={signInWithFacebook}
+                variant="outline"
+                className="flex-1 text-base px-6 py-7 bg-[#1877F2] border-transparent shadow-[0_12px_32px_-4px_rgba(24,119,242,0.3)] hover:shadow-[0_16px_40px_-4px_rgba(24,119,242,0.4)] text-white hover:bg-[#1877F2]/90 hover:scale-[1.02] active:scale-95 transition-all duration-300 ease-out rounded-2xl group flex items-center justify-center font-black"
+              >
+                <SiFacebook className="mr-3 h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
+                Sign in with Facebook
+              </Button>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-5 w-full max-w-md relative z-10 mt-8">
-            <Button
-              size="lg"
-              onClick={signInWithGoogle}
-              className="text-xl px-8 py-8 bg-[#0F172A] hover:bg-[#1e293b] text-white border-transparent shadow-[0_15px_40px_-5px_rgba(15,23,42,0.3)] hover:shadow-[0_20px_50px_-5px_rgba(15,23,42,0.4)] hover:scale-[1.02] active:scale-95 transition-all duration-300 ease-out rounded-2xl group"
-            >
-              <Heart className="mr-3 h-6 w-6 text-red-500 group-hover:scale-125 transition-transform duration-300" />
-              Sign in with Google
-            </Button>
+          {/* Core Feature Journeys Section */}
+          <div className="w-[92%] max-w-6xl mx-auto space-y-24 py-12">
+            <div className="flex flex-col items-center text-center space-y-4 max-w-xl mx-auto mb-16">
+              <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-none">
+                Transforming Pet Journeys
+              </h2>
+              <div className="h-1 w-20 bg-gradient-to-r from-[#ff6b4a] to-[#ff8f6b] rounded-full" />
+              <p className="text-slate-500 font-medium leading-relaxed">
+                Unlock specialized tools that adapt to your pet's exact daily lifestyle and immediate health requirements.
+              </p>
+            </div>
 
-            <Button
-              size="lg"
-              onClick={signInWithFacebook}
-              variant="outline"
-              className="text-xl px-8 py-8 bg-[#1877F2] border-transparent shadow-[0_15px_40px_-5px_rgba(24,119,242,0.3)] hover:shadow-[0_20px_50px_-5px_rgba(24,119,242,0.4)] text-white hover:bg-[#1877F2]/90 hover:scale-[1.02] active:scale-95 transition-all duration-300 ease-out rounded-2xl group"
-            >
-              <SiFacebook className="mr-3 h-6 w-6 group-hover:rotate-12 transition-transform duration-300" />
-              Sign in with Facebook
-            </Button>
+            {/* Journey 1: Injury Scanner */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
+              <div className="md:col-span-6 space-y-6">
+                <span className="text-[10px] font-black tracking-[0.3em] text-[#ff6b4a] bg-[#ff6b4a]/5 border border-[#ff6b4a]/10 px-4 py-2 rounded-full uppercase">
+                  Feature 01 · Triage
+                </span>
+                <h3 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-none">
+                  Smart AI Injury Scanner
+                </h3>
+                <p className="text-slate-500 font-medium leading-relaxed text-sm md:text-base">
+                  Upload a photo of a skin symptom, wound, or direct injury to receive an instant specialized deep-dive medical report. It analyzes immediate risks and generates tailored treatment recommendations.
+                </p>
+                <ul className="space-y-3 pt-2">
+                  <li className="flex items-center gap-3 text-slate-700 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Fast photo upload and instant analysis
+                  </li>
+                  <li className="flex items-center gap-3 text-slate-700 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Full symptoms and risk breakdown
+                  </li>
+                  <li className="flex items-center gap-3 text-slate-700 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Specialized first-aid advice
+                  </li>
+                </ul>
+              </div>
+              <div className="md:col-span-6 group">
+                <Card className="p-4 bg-gradient-to-br from-[#ff6b4a]/5 via-transparent to-orange-500/[0.02] backdrop-blur-3xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.06)] rounded-[2.5rem] border-none group-hover:scale-[1.02] duration-500 transition-all overflow-hidden relative">
+                  <div className="absolute top-[-10%] right-[-10%] w-48 h-48 bg-[#ff6b4a]/10 blur-[60px] rounded-full pointer-events-none" />
+                  <div className="p-6 bg-white/80 border border-black/[0.02] rounded-3xl space-y-6 relative z-10">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-[#ff6b4a] to-orange-500 flex items-center justify-center rounded-2xl shadow-md text-white shadow-orange-500/30">
+                        <HeartPulse className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Specialized Flow</p>
+                        <h4 className="text-lg font-black text-slate-900 leading-tight">Digital Injury Scanning</h4>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Left: Half Pet Image */}
+                      <div className="relative h-52 rounded-2xl overflow-hidden border border-black/[0.03] shadow-inner bg-slate-50">
+                        <img 
+                          src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=400" 
+                          alt="Pet preview"
+                          className="w-full h-full object-cover select-none pointer-events-none opacity-90 transition-all"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
+                      </div>
+                      
+                      {/* Right: Half Result with a little blur */}
+                      <div className="bg-white/40 backdrop-blur-md p-4 rounded-2xl border border-black/[0.02] text-left h-52 flex flex-col justify-between relative overflow-hidden">
+                        <div className="space-y-2 relative">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[9px] font-black px-1.5 py-0.5 bg-red-50 text-red-500 rounded border border-red-100 uppercase tracking-wider">Analysis Result</span>
+                            <span className="text-[9px] text-slate-400 font-bold">94% Match</span>
+                          </div>
+                          
+                          {/* Full Report Details with fade effect at bottom */}
+                          <div className="relative h-36 overflow-hidden select-none">
+                            <h5 className="font-bold text-slate-800 text-xs leading-snug mb-1">Dermatological & Scratch Report</h5>
+                            <p className="text-[10px] text-slate-600 leading-relaxed font-medium">
+                              Patient displays localized inflammation around paw pads. There is no major laceration, but mild surface abrasions suggest environmental irritants or continuous licking.
+                            </p>
+                            <p className="text-[10px] text-slate-500 leading-relaxed font-medium mt-1">
+                              Treatment: 1. Clean gently twice daily with cool sterile saline. 2. Apply organic paw balm. 3. Prevent licking using a specialized soft pet cone if necessary.
+                            </p>
+                            
+                            {/* Fade effect overlay to bottom of card */}
+                            <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-white via-white/40 to-transparent pointer-events-none" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
+
+            {/* Journey 2: AI Vet Consultation */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
+              <div className="md:col-span-6 order-2 md:order-1 group">
+                <Card className="p-4 bg-gradient-to-br from-blue-500/5 via-transparent to-teal-500/[0.02] backdrop-blur-3xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.06)] rounded-[2.5rem] border-none group-hover:scale-[1.02] duration-500 transition-all overflow-hidden relative">
+                  <div className="absolute top-[-10%] left-[-10%] w-48 h-48 bg-blue-500/10 blur-[60px] rounded-full pointer-events-none" />
+                  <div className="p-6 bg-white/80 border border-black/[0.02] rounded-3xl space-y-6 relative z-10">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center rounded-2xl shadow-md text-white shadow-blue-500/30">
+                        <Stethoscope className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">24/7 Conversations</p>
+                        <h4 className="text-lg font-black text-slate-900 leading-tight">Virtual Vet Chat</h4>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Left: Half Pet Image */}
+                      <div className="relative h-52 rounded-2xl overflow-hidden border border-black/[0.03] shadow-inner bg-slate-50">
+                        <img 
+                          src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=400" 
+                          alt="Pet preview"
+                          className="w-full h-full object-cover select-none pointer-events-none opacity-90 transition-all"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
+                      </div>
+                      
+                      {/* Right: Half Result with a little blur */}
+                      <div className="bg-white/40 backdrop-blur-md p-4 rounded-2xl border border-black/[0.02] space-y-2.5 text-left h-52 flex flex-col justify-between">
+                        <div className="space-y-2 overflow-y-auto">
+                          <div className="flex gap-1.5 items-start">
+                            <div className="w-5 h-5 bg-slate-200 rounded-lg flex items-center justify-center text-[9px] text-slate-600 font-bold shrink-0">U</div>
+                            <div className="bg-white px-2 py-1 rounded-xl border border-slate-100/60 text-[10px] text-slate-600 font-medium">Refusing new kibble. What can I do?</div>
+                          </div>
+                          <div className="flex gap-1.5 items-start">
+                            <div className="w-5 h-5 bg-blue-500/10 text-blue-500 rounded-lg flex items-center justify-center text-[9px] font-bold shrink-0">AI</div>
+                            <div className="bg-blue-50/40 px-2 py-1 rounded-xl border border-blue-100/40 text-[10px] text-slate-700 font-medium leading-relaxed">
+                              Try mixing a small amount of warm water or low-sodium broth.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+              <div className="md:col-span-6 order-1 md:order-2 space-y-6">
+                <span className="text-[10px] font-black tracking-[0.3em] text-blue-500 bg-blue-500/5 border border-blue-500/10 px-4 py-2 rounded-full uppercase">
+                  Feature 02 · Guidance
+                </span>
+                <h3 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-none">
+                  Consultation With Specialized AI
+                </h3>
+                <p className="text-slate-500 font-medium leading-relaxed text-sm md:text-base">
+                  Get instant behavioral tips, precise diet plans, and medical triage answers anytime. It acts as your fully accessible, customized digital veterinarian, providing expert advice without delay.
+                </p>
+                <ul className="space-y-3 pt-2">
+                  <li className="flex items-center gap-3 text-slate-700 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Fully customized triage conversations
+                  </li>
+                  <li className="flex items-center gap-3 text-slate-700 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Instant dietary & behavioral plans
+                  </li>
+                  <li className="flex items-center gap-3 text-slate-700 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Real-time 24/7 responsiveness
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Journey 3: AI Portraits */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
+              <div className="md:col-span-6 space-y-6">
+                <span className="text-[10px] font-black tracking-[0.3em] text-purple-600 bg-purple-500/5 border border-purple-500/10 px-4 py-2 rounded-full uppercase">
+                  Feature 03 · Masterpieces
+                </span>
+                <h3 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-none">
+                  Exclusive AI Portrait Studio
+                </h3>
+                <p className="text-slate-500 font-medium leading-relaxed text-sm md:text-base">
+                  Transform normal pet pictures into high-definition digital artistic masterpieces. Select from multiple curated styles, witness transformations in seconds, and create custom exhibitions of your pet.
+                </p>
+                <ul className="space-y-3 pt-2">
+                  <li className="flex items-center gap-3 text-slate-700 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Gorgeous high-definition rendering
+                  </li>
+                  <li className="flex items-center gap-3 text-slate-700 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Multiple distinct artistic styles
+                  </li>
+                  <li className="flex items-center gap-3 text-slate-700 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Download & keep your exhibitions
+                  </li>
+                </ul>
+              </div>
+              <div className="md:col-span-6 group">
+                <Card className="p-4 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/[0.02] backdrop-blur-3xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.06)] rounded-[2.5rem] border-none group-hover:scale-[1.02] duration-500 transition-all overflow-hidden relative">
+                  <div className="absolute top-[-10%] right-[-10%] w-48 h-48 bg-purple-500/10 blur-[60px] rounded-full pointer-events-none" />
+                  <div className="p-6 bg-white/80 border border-black/[0.02] rounded-3xl space-y-6 relative z-10">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center rounded-2xl shadow-md text-white shadow-purple-500/30">
+                        <Camera className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Artistic Transformation</p>
+                        <h4 className="text-lg font-black text-slate-900 leading-tight">Custom Portrait Exhibition</h4>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Left: Half Pet Image */}
+                      <div className="relative h-52 rounded-2xl overflow-hidden border border-black/[0.03] shadow-inner bg-slate-50">
+                        <img 
+                          src="https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&q=80&w=400" 
+                          alt="Pet preview"
+                          className="w-full h-full object-cover select-none pointer-events-none opacity-90 transition-all"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
+                      </div>
+                      
+                      {/* Right: Half Result with a little blur */}
+                      <div className="bg-white/40 backdrop-blur-md p-4 rounded-2xl border border-black/[0.02] space-y-2.5 text-left h-52 flex flex-col justify-between">
+                        <div className="flex-1 flex flex-col justify-center">
+                          <span className="text-[9px] font-black bg-purple-50 text-purple-600 border border-purple-100 px-1.5 py-0.5 rounded uppercase tracking-wider self-start mb-2">Artistic</span>
+                          <h5 className="font-bold text-slate-800 text-xs leading-snug truncate">"Sir Charles" Portrait</h5>
+                          <p className="text-[10px] text-slate-500 leading-relaxed font-medium mt-1">Victorian Masterpiece</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
       ) : !showUploader ? (
         <>
           <Header />

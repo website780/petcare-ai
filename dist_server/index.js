@@ -62,12 +62,14 @@ var users = pgTable("users", {
   displayName: text("display_name"),
   photoURL: text("photo_url"),
   firebaseId: text("firebase_id").notNull().unique(),
+  appTokenBalance: integer("app_token_balance").default(0),
+  // Universal Credit System
   freeScanUsed: integer("free_scan_used").default(0),
-  // 0: no, 1: yes (Normal Scan)
+  // Legacy
   freeInjuryScanUsed: integer("free_injury_scan_used").default(0),
-  // 0: no, 1: yes (Injury Scan)
+  // Legacy
   vetChatCredits: integer("vet_chat_credits").default(2),
-  // Starts with 2 free questions
+  // Legacy
   createdAt: timestamp("created_at").defaultNow()
 });
 var pets = pgTable("pets", {
@@ -81,7 +83,6 @@ var pets = pgTable("pets", {
   imageGallery: text("image_gallery").array(),
   careRecommendations: text("care_recommendations").array(),
   weight: text("weight"),
-  age: text("age"),
   size: text("size"),
   lifespan: text("lifespan"),
   vetCareFrequency: text("vet_care_frequency"),
@@ -112,7 +113,10 @@ var pets = pgTable("pets", {
   vaccinationRecords: text("vaccination_records").array(),
   vaccinationSchedule: text("vaccination_schedule"),
   nextVaccinationDue: timestamp("next_vaccination_due"),
-  vaccinationNotes: text("vaccination_notes")
+  vaccinationNotes: text("vaccination_notes"),
+  age: text("age"),
+  nutritionAnalysis: jsonb("nutrition_analysis"),
+  lastInjuryAnalysis: jsonb("last_injury_analysis")
 });
 var reminders = pgTable("reminders", {
   id: serial("id").primaryKey(),
@@ -307,7 +311,10 @@ var insertPetSchema = createInsertSchema(pets, {
   moodRecommendations: z.array(z.string()).optional().default([]),
   imageGallery: z.array(z.string()).optional().default([]),
   vaccinationRecords: z.array(z.string()).optional().default([])
-}).omit({ id: true }).extend({ gender: z.string().nullable().optional() });
+}).omit({ id: true }).extend({
+  gender: z.string().nullable().optional(),
+  age: z.string().nullable().optional()
+});
 var insertReminderSchema = createInsertSchema(reminders).omit({ id: true }).extend({
   dueDate: z.string().transform((str) => new Date(str)),
   dueTime: z.string().optional(),
@@ -324,7 +331,6 @@ var analyzeImageResponseSchema = z.object({
   gender: z.string().nullable(),
   description: z.string(),
   weight: z.string().nullable(),
-  age: z.string().nullable(),
   size: z.string().nullable(),
   lifespan: z.string(),
   vetCareFrequency: z.string(),
@@ -434,6 +440,26 @@ var processedPayments = pgTable("processed_payments", {
 var insertPetPortraitSchema = createInsertSchema(petPortraits).omit({ id: true, createdAt: true });
 var insertStandaloneScanSchema = createInsertSchema(standaloneScans).omit({ id: true, createdAt: true });
 var insertStandaloneVetChatSchema = createInsertSchema(standaloneVetChats).omit({ id: true, createdAt: true });
+var tokenTransactions = pgTable("token_transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  amount: integer("amount").notNull(),
+  type: text("type").notNull(),
+  // 'usage', 'top_up'
+  description: text("description").notNull(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+var subscriptions = pgTable("subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  type: text("type").notNull(),
+  status: text("status").notNull(),
+  startDate: timestamp("start_date").defaultNow(),
+  endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+var insertTokenTransactionSchema = createInsertSchema(tokenTransactions).omit({ id: true, createdAt: true });
+var insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, createdAt: true });
 
 // server/storage.ts
 import { eq, desc, sql } from "drizzle-orm";
@@ -446,7 +472,7 @@ if (!process.env.DATABASE_URL) {
 }
 var pool = new Pool({
   connectionString: process.env.DATABASE_URL || "",
-  connectionTimeoutMillis: 5e3
+  connectionTimeoutMillis: 3e4
 });
 var db = drizzle(pool, { logger: true });
 var PostgresStorage = class {
@@ -500,15 +526,69 @@ var PostgresStorage = class {
     console.log(`[IRON-CREDIT] User ${id} updated ${field} to ${value}. Final State: SCAN:${finalState.freeScanUsed}, INJURE:${finalState.freeInjuryScanUsed}, VET:${finalState.vetChatCredits}`);
     return finalState;
   }
+  async adjustUserTokens(id, amount, type, description) {
+    console.log(`[TOKEN-ADJUST] Adjusting tokens for user ${id} by ${amount}`);
+    const user = await this.getUser(id);
+    if (!user) throw new Error("User not found");
+    const currentBalance = Number(user.appTokenBalance || 0);
+    const newBalance = Math.max(0, currentBalance + amount);
+    console.log(`[TOKEN-ADJUST] User ${id} Current: ${currentBalance}, Change: ${amount}, New: ${newBalance}`);
+    await db.update(users).set({ appTokenBalance: newBalance }).where(eq(users.id, id));
+    if (type && description) {
+      await db.insert(tokenTransactions).values({
+        userId: id,
+        amount,
+        type,
+        description
+      });
+      console.log(`[TRANSACTION] Logged ${type} for user ${id}: ${description}`);
+    }
+    const updated = await this.getUser(id);
+    if (!updated) throw new Error("User lost during token update");
+    return { ...updated, appTokenBalance: newBalance };
+  }
+  async getTokenTransactions(userId) {
+    return await db.select().from(tokenTransactions).where(eq(tokenTransactions.userId, userId)).orderBy(desc(tokenTransactions.createdAt));
+  }
+  async getLatestSubscription(userId) {
+    const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.userId, userId)).orderBy(desc(subscriptions.createdAt)).limit(1);
+    return sub;
+  }
+  async createSubscription(sub) {
+    const [newSub] = await db.insert(subscriptions).values(sub).returning();
+    return newSub;
+  }
   async resetUserForTesting(userId) {
     console.log(`[RESET-STORAGE] Resetting user ${userId}`);
-    const [updatedUser] = await db.update(users).set({ freeScanUsed: 0, freeInjuryScanUsed: 0, vetChatCredits: 2 }).where(eq(users.id, userId)).returning();
+    const [updatedUser] = await db.update(users).set({ freeScanUsed: 0, freeInjuryScanUsed: 0, vetChatCredits: 2, appTokenBalance: 0 }).where(eq(users.id, userId)).returning();
     console.log(`[RESET-STORAGE] Updated: freeScanUsed=${updatedUser.freeScanUsed}, vetChatCredits=${updatedUser.vetChatCredits}`);
-    await db.delete(pets).where(eq(pets.userId, userId));
-    await db.delete(standaloneScans).where(eq(standaloneScans.userId, userId));
-    await db.delete(standaloneVetChats).where(eq(standaloneVetChats.userId, userId));
-    await db.delete(petPortraits).where(eq(petPortraits.userId, userId));
-    console.log(`[RESET-STORAGE] All data deleted for user ${userId}`);
+    console.log(`[RESET-STORAGE] Cleaning dependencies for user ${userId}`);
+    const tablesToDelete = [
+      reminders,
+      vetConsultations,
+      groomingAppointments,
+      trainingAppointments,
+      insuranceClaims,
+      insurancePolicies,
+      petExpenses,
+      petPortraits,
+      standaloneScans,
+      standaloneVetChats,
+      processedPayments,
+      tokenTransactions,
+      subscriptions,
+      pets
+      // Final delete
+    ];
+    for (const table of tablesToDelete) {
+      try {
+        await db.delete(table).where(eq(table.userId, userId));
+      } catch (e) {
+        console.warn(`[RESET] Skipping/Failed cleanup for table:`, e instanceof Error ? e.message : e);
+        if (table === pets) throw e;
+      }
+    }
+    console.log(`[RESET-STORAGE] Reset complete for user ${userId}`);
     return updatedUser;
   }
   async getPet(id) {
@@ -519,8 +599,20 @@ var PostgresStorage = class {
     return db.select().from(pets).where(eq(pets.userId, userId));
   }
   async createPet(insertPet) {
-    const [pet] = await db.insert(pets).values(insertPet).returning();
-    return pet;
+    try {
+      const [pet] = await db.insert(pets).values(insertPet).returning();
+      return pet;
+    } catch (error) {
+      console.error("[DATABASE-ERROR] Pet creation failed:", {
+        message: error.message,
+        stack: error.stack,
+        insertData: insertPet
+      });
+      const fallbackPet = { ...insertPet };
+      delete fallbackPet.age;
+      const [pet] = await db.insert(pets).values(fallbackPet).returning();
+      return pet;
+    }
   }
   async updatePet(id, updates) {
     const processedUpdates = { ...updates };
@@ -712,6 +804,42 @@ var PostgresStorage = class {
     await db.insert(processedPayments).values({
       userId,
       stripeSessionId: sessionId
+    });
+  }
+  async getAdminAllData() {
+    const [
+      allUsers,
+      allPets,
+      allStandaloneScans,
+      allStandaloneVetChats,
+      allPortraits,
+      allReminders,
+      allVetConsultations,
+      allGroomingAppointments,
+      allTrainingAppointments
+    ] = await Promise.all([
+      db.select().from(users),
+      db.select().from(pets),
+      db.select().from(standaloneScans),
+      db.select().from(standaloneVetChats),
+      db.select().from(petPortraits),
+      db.select().from(reminders),
+      db.select().from(vetConsultations),
+      db.select().from(groomingAppointments),
+      db.select().from(trainingAppointments)
+    ]);
+    return allUsers.map((user) => {
+      return {
+        ...user,
+        pets: allPets.filter((p) => p.userId === user.id),
+        standaloneScans: allStandaloneScans.filter((s) => s.userId === user.id),
+        standaloneVetChats: allStandaloneVetChats.filter((c) => c.userId === user.id),
+        petPortraits: allPortraits.filter((p) => p.userId === user.id),
+        reminders: allReminders.filter((r) => r.userId === user.id),
+        vetConsultations: allVetConsultations.filter((c) => c.userId === user.id),
+        groomingAppointments: allGroomingAppointments.filter((g) => g.userId === user.id),
+        trainingAppointments: allTrainingAppointments.filter((t) => t.userId === user.id)
+      };
     });
   }
 };
@@ -1168,6 +1296,15 @@ function registerRoutes(app2) {
       res.status(503).json({ status: "unhealthy", reason: "Database unavailable" });
     }
   });
+  app2.get("/api/admin/all-data", async (req, res) => {
+    try {
+      const data = await storage.getAdminAllData();
+      res.json(data);
+    } catch (err) {
+      console.error("Admin data fetch error:", err);
+      res.status(500).json({ error: err.message || "Internal server error" });
+    }
+  });
   app2.post("/api/auth/sync", async (req, res) => {
     try {
       const { email, displayName, photoURL, firebaseId } = req.body;
@@ -1186,7 +1323,7 @@ function registerRoutes(app2) {
           photoURL
         });
       }
-      console.log(`[SYNC-FINAL] Returning user ${user.id} -> SCAN:${user.freeScanUsed}, INJURY:${user.freeInjuryScanUsed}, VET:${user.vetChatCredits}`);
+      console.log(`[SYNC-FINAL] Returning user ${user.id} -> SCAN:${user.freeScanUsed}, INJURY:${user.freeInjuryScanUsed}, VET:${user.vetChatCredits}, TOKENS:${user.appTokenBalance}`);
       res.json(user);
     } catch (error) {
       console.error("Error syncing user:", error);
@@ -1209,7 +1346,12 @@ function registerRoutes(app2) {
       });
     } catch (error) {
       console.error("[RESET] Error:", error);
-      res.status(500).json({ error: "Failed to reset account", details: error instanceof Error ? error.message : String(error) });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      res.status(500).json({
+        error: "Failed to reset account",
+        details: errorMessage,
+        stack: error instanceof Error ? error.stack : void 0
+      });
     }
   });
   app2.get("/api/youtube/search", async (req, res) => {
@@ -1404,9 +1546,10 @@ function registerRoutes(app2) {
         targetUser = await storage.getUser(Number(userId));
       }
       if (targetUser) {
-        if (Number(targetUser.freeScanUsed) === 1) {
-          return res.status(403).json({ error: "Free scan limit reached. Please upgrade to continue." });
+        if ((targetUser.appTokenBalance || 0) < 2) {
+          return res.status(402).json({ error: "Insufficient tokens. 2 Tokens required." });
         }
+        await storage.adjustUserTokens(targetUser.id, -2, "usage", "Pet Profile Analysis");
       }
       console.log("Starting image analysis with OpenAI Vision API");
       const response = await openai2.chat.completions.create({
@@ -1440,9 +1583,9 @@ function registerRoutes(app2) {
         throw new Error("No content in OpenAI response");
       }
       const analysis = JSON.parse(content);
-      if (targetUser && !targetUser.freeScanUsed) {
+      if (targetUser && Number(targetUser.freeScanUsed || 0) < 2) {
         console.log(`[SCAN-SUCCESS] Consuming credit for user ${targetUser.id}`);
-        await storage.updateUserCredits(targetUser.id, "freeScanUsed", 1);
+        await storage.updateUserCredits(targetUser.id, "freeScanUsed", Number(targetUser.freeScanUsed || 0) + 1);
       }
       res.json(analysis);
     } catch (error) {
@@ -1462,17 +1605,28 @@ function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to identify pet" });
     }
   });
+  app2.get("/api/standalone/scan/:id", async (req, res) => {
+    try {
+      const scanId = Number(req.params.id);
+      const scan = await storage.getStandaloneScan(scanId);
+      if (!scan) return res.status(404).json({ error: "Scan not found" });
+      res.json(scan);
+    } catch (error) {
+      console.error("Error fetching standalone scan:", error);
+      res.status(500).json({ error: "Failed to fetch scan" });
+    }
+  });
   app2.post("/api/standalone/scan", async (req, res) => {
     try {
       const { userId, petInfo, injuryPhotoUrl, analysisResults } = req.body;
       const user = await storage.getUser(Number(userId));
       if (!user) return res.status(404).json({ error: "User not found" });
-      let isPaid = 0;
-      if (!user.freeInjuryScanUsed) {
-        console.log(`[SCAN-INJURY] Consuming free INJURY credit for user ${user.id}`);
-        isPaid = 1;
-        await storage.updateUserCredits(user.id, "freeInjuryScanUsed", 1);
+      let isPaid = 1;
+      if ((user.appTokenBalance || 0) < 3) {
+        return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
       }
+      console.log(`[SCAN-INJURY] Consuming 3 Tokens for user ${user.id}`);
+      await storage.adjustUserTokens(user.id, -3, "usage", "AI Injury Scan");
       const scan = await storage.createStandaloneScan({
         userId,
         petInfo,
@@ -1495,7 +1649,7 @@ function registerRoutes(app2) {
       const { type, userId, metadata } = req.body;
       console.log(`[Stripe] Creating checkout for type: ${type}, userId: ${userId}`);
       let baseLink = "";
-      if (type.startsWith("portrait") || type === "vet_chat_pack" || type === "injury_report") {
+      if (type.startsWith("portrait") || type === "vet_chat_pack" || type === "injury_report" || type === "credit_topup") {
         let amount = 1500;
         let description = "Pet AI Feature";
         if (type === "injury_report") {
@@ -1504,6 +1658,23 @@ function registerRoutes(app2) {
         } else if (type === "vet_chat_pack") {
           amount = 1500;
           description = "Pet AI Companion - 5 Expert AI Vet Questions";
+        } else if (type === "credit_topup") {
+          if (metadata?.package === "tier_1") {
+            amount = 999;
+            description = "Pet AI Companion - Starter Pack (50 Tokens)";
+          } else if (metadata?.package === "tier_2" || metadata?.package === "100_credits") {
+            amount = 1999;
+            description = "Pet AI Companion - Pro Pack (100 Tokens)";
+          } else if (metadata?.package === "tier_3") {
+            amount = 4999;
+            description = "Pet AI Companion - Value Pack (400 Tokens)";
+          } else if (metadata?.package === "20_credits") {
+            amount = 500;
+            description = "Pet AI Companion - 20 Universal Credits";
+          } else {
+            amount = 1999;
+            description = "Pet AI Companion - Pro Pack (100 Tokens)";
+          }
         } else if (type.startsWith("portrait")) {
           amount = 900;
           description = "Pet AI Companion - Professional HD Portrait";
@@ -1538,7 +1709,8 @@ function registerRoutes(app2) {
           metadata: {
             type,
             scanId: String(metadata?.scanId || ""),
-            portraitId: String(metadata?.portraitId || "")
+            portraitId: String(metadata?.portraitId || ""),
+            package: String(metadata?.package || "")
           }
         });
         return res.json({ url: session.url });
@@ -1590,7 +1762,8 @@ function registerRoutes(app2) {
         console.log(`[Stripe-Fulfillment] Forensic Match! Found User:${userIdPart}`);
       }
     }
-    console.log(`[Stripe-Fulfillment] Finalizing: User:${userIdPart}, Type:${typePart}, ScanID:${scanIdPart}`);
+    console.log(`[Stripe-Fulfillment] Finalizing: User:${userIdPart}, Type:${typePart}, ScanID:${scanIdPart}, PortraitID:${portraitIdPart}`);
+    console.log(`[Stripe-Fulfillment] session.metadata:`, JSON.stringify(session.metadata));
     let wasFulfilled = false;
     if (scanIdPart) {
       await storage.updateStandaloneScan(Number(scanIdPart), { isPaid: 1 });
@@ -1605,7 +1778,30 @@ function registerRoutes(app2) {
     } else if (userIdPart) {
       const user = await storage.getUser(Number(userIdPart));
       if (user) {
-        if (session.amount_total === 1500 || typePart === "vet_chat_pack" || typePart === "vet_chat") {
+        if (typePart === "credit_topup") {
+          const packageType = session.metadata?.package;
+          const amount = session.amount_total || 0;
+          let tokensToAdd = 100;
+          let planName = "Token Top-up";
+          if (packageType === "tier_1" || amount === 999) {
+            tokensToAdd = 50;
+            planName = "Starter Pack (50 Tokens)";
+          } else if (packageType === "tier_2" || amount === 1999) {
+            tokensToAdd = 100;
+            planName = "Pro Pack (100 Tokens)";
+          } else if (packageType === "tier_3" || amount === 4999) {
+            tokensToAdd = 400;
+            planName = "Value Pack (400 Tokens)";
+          } else if (packageType === "20_credits") {
+            tokensToAdd = 20;
+            planName = "Legacy 20 Pack";
+          } else if (packageType === "100_credits" || amount === 2e3) {
+            tokensToAdd = 100;
+            planName = "Legacy 100 Pack";
+          }
+          await storage.adjustUserTokens(user.id, tokensToAdd, "top_up", planName);
+          wasFulfilled = true;
+        } else if (session.amount_total === 1500 || typePart === "vet_chat_pack" || typePart === "vet_chat") {
           await storage.updateUserCredits(user.id, "vetChatCredits", (user.vetChatCredits || 0) + 5);
           wasFulfilled = true;
         } else if (typePart === "home_analysis") {
@@ -1657,7 +1853,13 @@ function registerRoutes(app2) {
       if (session.payment_status === "paid") {
         const success = await fulfillOrder(session);
         console.log(`[Stripe-Success] Found and processed session: ${session.id}`);
-        return res.json({ success, type: session.metadata?.type || "unknown", message: success ? "Your purchase has been fulfilled!" : "Partial match found." });
+        return res.json({
+          success,
+          type: session.metadata?.type || "unknown",
+          metadata: session.metadata,
+          // Return all metadata for client-side routing
+          message: success ? "Your purchase has been fulfilled!" : "Partial match found."
+        });
       }
       res.json({ success: false, message: "Payment not verified yet." });
     } catch (error) {
@@ -1713,7 +1915,12 @@ function registerRoutes(app2) {
       if (match) {
         console.log(`[Email-Forensics] Found new paid session: ${match.id}`);
         const success = await fulfillOrder(match, typeHint);
-        return res.json({ success, type: typeHint || "unknown", message: "Found and processed your payment!" });
+        return res.json({
+          success,
+          type: typeHint || "unknown",
+          metadata: match.metadata,
+          message: "Found and processed your payment!"
+        });
       }
       res.json({ success: false, message: `Found ${emailSessions.length} session(s), but none are 'paid' yet.` });
     } catch (error) {
@@ -1934,7 +2141,7 @@ Pet Owner: ${message}`
   });
   app2.post("/api/chat/vet", async (req, res) => {
     try {
-      const { message, petId, userId, petSpecies, petBreed, petInfo, chatHistory, category } = req.body;
+      const { message, petId, userId, petSpecies, petBreed, petInfo, chatHistory, category, injuryContext } = req.body;
       const species = petSpecies || petInfo?.species || "pet";
       const breed = petBreed || petInfo?.breed || "";
       if (!userId) {
@@ -1942,9 +2149,11 @@ Pet Owner: ${message}`
       }
       const user = await storage.getUser(Number(userId));
       if (!user) return res.status(404).json({ error: "User not found" });
-      if ((user.vetChatCredits ?? 0) <= 0) {
-        return res.status(403).json({ error: "No chat credits remaining" });
+      if ((user.appTokenBalance || 0) < 3) {
+        return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
       }
+      console.log(`[CHAT] Consuming 3 Tokens for user ${user.id}`);
+      await storage.adjustUserTokens(user.id, -3, "usage", "AI Vet Consultation");
       if (!message) {
         return res.status(400).json({ error: "No message provided" });
       }
@@ -1955,6 +2164,23 @@ Pet Owner: ${message}`
       const chatHistoryPrompt = chatHistory?.length > 0 ? "Previous conversation:\n" + chatHistory.map(
         (msg) => `${msg.role === "user" ? "Pet Owner" : "Veterinary Assistant"}: ${msg.content}`
       ).join("\n") : "";
+      let injuryAnalysisContext = "";
+      if (injuryContext) {
+        if (typeof injuryContext === "string") {
+          injuryAnalysisContext = `
+RECENT INJURY SCAN FINDINGS:
+${injuryContext}
+`;
+        } else if (typeof injuryContext === "object") {
+          injuryAnalysisContext = `
+RECENT INJURY SCAN FINDINGS:
+- Description: ${injuryContext.injuryDescription || "N/A"}
+- Severity: ${injuryContext.severity || "N/A"}
+- Recommended Immediate Actions: ${injuryContext.immediateActions?.join(", ") || "N/A"}
+- Treatment Options: ${injuryContext.treatmentOptions?.map((o) => o.name).join(", ") || "N/A"}
+`;
+        }
+      }
       let categoryContext = "";
       if (category) {
         switch (category) {
@@ -1984,6 +2210,7 @@ Pet Owner: ${message}`
             role: "system",
             content: `You are a veterinary assistant providing guidance on pet health issues. You're answering questions about a ${species}${breed ? ` (${breed})` : ""}. 
             
+${injuryAnalysisContext}
 ${categoryContext}
 
 Focus on providing specific, actionable advice with real brand names and medicine names where appropriate. For example, instead of saying "use a flea treatment," recommend specific products like "Frontline Plus, Advantage II, or Seresto collars." For supplements, mention specific brands like "Cosequin, Dasuquin, or Nordic Naturals Omega-3 Pet." For medications, refer to common veterinary medicines by name when appropriate.
@@ -2198,7 +2425,9 @@ Pet Owner: ${message}`
           treatRecommendations: ["Species-appropriate healthy treats"],
           vaccinationRecords: [],
           vaccinationSchedule: `Regular vaccination schedule recommended for ${pet.species}. Consult your veterinarian for a personalized vaccination plan.`,
-          vaccinationNotes: `Standard vaccinations for ${pet.breed || pet.species} should be discussed with your veterinarian.`
+          vaccinationNotes: null,
+          nutritionAnalysis: null,
+          lastInjuryAnalysis: null
         });
         res.status(201).json(updatedPet);
       }
@@ -2223,33 +2452,6 @@ Pet Owner: ${message}`
           ...pet.imageGallery || [],
           ...req.body.imageGallery || []
         ]));
-      }
-      if (!req.body.trainingDetails || !req.body.exerciseNeeds) {
-        try {
-          console.log("Generating training plan for pet:", pet);
-          const trainingPlan = await generateTrainingPlan(pet);
-          console.log("Generated training plan:", trainingPlan);
-          req.body = {
-            ...req.body,
-            ...trainingPlan
-          };
-        } catch (error) {
-          console.error("Error generating training plan:", error);
-          req.body = {
-            ...req.body,
-            trainingDetails: [
-              "Basic Commands: Start with sit, stay, and come",
-              "Leash Training: Practice walking without pulling",
-              "Socialization: Expose to different environments and other pets",
-              "Positive Reinforcement: Reward good behavior with treats"
-            ],
-            trainingLevel: "Beginner",
-            exerciseNeeds: "Regular daily exercise needed",
-            exerciseSchedule: "Twice daily, morning and evening",
-            exerciseDuration: "30-45 minutes per session",
-            exerciseType: "Walks, play sessions, and training exercises"
-          };
-        }
       }
       const updatedPet = await storage.updatePet(id, req.body);
       res.json(updatedPet);
@@ -2495,11 +2697,20 @@ Pet Owner: ${message}`
   });
   app2.post("/api/nutrition/analyze", async (req, res) => {
     try {
-      const { breed, weight, activityLevel, species, age } = req.body;
+      const { breed, weight, activityLevel, species, age, userId } = req.body;
       if (!breed || !weight || !activityLevel || !species) {
         return res.status(400).json({
           error: "Missing required fields: breed, weight, activityLevel, and species are required"
         });
+      }
+      if (userId !== void 0 && userId !== null) {
+        const user = await storage.getUser(Number(userId));
+        if (!user) return res.status(404).json({ error: "User not found" });
+        if ((user.appTokenBalance || 0) < 3) {
+          return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
+        }
+        console.log(`[NUTRITION] Consuming 3 Tokens for user ${user.id}`);
+        await storage.adjustUserTokens(user.id, -3, "usage", "AI Nutrition Analysis");
       }
       if (!process.env.OPENAI_API_KEY) {
         return res.status(500).json({ error: "OpenAI API is not configured" });
@@ -2518,6 +2729,45 @@ Pet Owner: ${message}`
         error: "Failed to generate nutrition analysis",
         details: error instanceof Error ? error.message : String(error)
       });
+    }
+  });
+  app2.post("/api/tokens/deduct", async (req, res) => {
+    try {
+      const { userId, amount, reason } = req.body;
+      if (!userId || !amount) {
+        return res.status(400).json({ error: "userId and amount are required" });
+      }
+      const user = await storage.getUser(Number(userId));
+      if (!user) return res.status(404).json({ error: "User not found" });
+      if ((user.appTokenBalance || 0) < amount) {
+        return res.status(402).json({ error: `Insufficient tokens. ${amount} Tokens required.` });
+      }
+      console.log(`[TOKEN-CONSUME] Consuming ${amount} Tokens for user ${user.id}. Reason: ${reason || "Generic"}`);
+      const updatedUser = await storage.adjustUserTokens(user.id, -amount, "usage", reason || "Token Deduction");
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error deducting tokens:", error);
+      res.status(500).json({ error: "Failed to deduct tokens" });
+    }
+  });
+  app2.get("/api/transactions", async (req, res) => {
+    try {
+      const userId = Number(req.query.userId);
+      if (!userId) return res.status(400).send("userId required");
+      const transactions = await storage.getTokenTransactions(userId);
+      res.json(transactions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch transactions" });
+    }
+  });
+  app2.get("/api/subscriptions/latest", async (req, res) => {
+    try {
+      const userId = Number(req.query.userId);
+      if (!userId) return res.status(400).send("userId required");
+      const sub = await storage.getLatestSubscription(userId);
+      res.json(sub || null);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch subscription" });
     }
   });
   app2.post("/api/users/:userId/insurance-policies", async (req, res) => {
@@ -2820,6 +3070,12 @@ Always respond in valid JSON format.`
       if (!imageBase64 || !style || !userId) {
         return res.status(400).json({ error: "Image, style, and userId are required" });
       }
+      const user = await storage.getUser(Number(userId));
+      if (!user) return res.status(404).json({ error: "User not found" });
+      if ((user.appTokenBalance || 0) < 3) {
+        return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
+      }
+      await storage.adjustUserTokens(user.id, -3, "usage", "AI Portrait Generation");
       if (!process.env.OPENAI_API_KEY) {
         return res.status(500).json({ error: "OpenAI API is not configured" });
       }
@@ -2844,7 +3100,7 @@ Always respond in valid JSON format.`
             content: [
               {
                 type: "text",
-                text: "Describe this pet in detail for an artist: species, breed, coloring, markings, pose, expression, and any unique features. Be specific about physical characteristics. Keep it to 2-3 sentences."
+                text: "Perform a forensic physical analysis of this pet for a world-class portrait artist. Describe its species, breed, and most importantly, identifying landmarks: the unique pattern of its fur/spots, exact shape of the face and snout, distinct ear positioning, eye color, and any asymmetrical markings. Your description will be used to recreate this exact individual pet in an artistic style. Be extremely specific about identity markers. 2-3 detailed sentences."
               },
               {
                 type: "image_url",
@@ -2855,7 +3111,7 @@ Always respond in valid JSON format.`
             ]
           }
         ],
-        max_tokens: 300
+        max_tokens: 400
       });
       const petDescription = visionResponse.choices[0]?.message?.content || "a cute pet";
       const imageResponse = await openai2.images.generate({
@@ -2864,10 +3120,10 @@ Always respond in valid JSON format.`
 
 The subject is: ${petDescription}
 
-IMPORTANT: Create a stylized artistic portrait, NOT a photograph. The portrait should be a single centered composition of just this pet with a complementary background.`,
+IMPORTANT: Create a stylized artistic portrait that preserves the unique identity markers mentioned. It must be a single centered composition of just this pet with a complementary background. If the style is Anime, use a high-fidelity 'Seinen' anime aesthetic that respects the pet's actual bone structure and facial proportions.`,
         n: 1,
         size: "1024x1024",
-        quality: "standard"
+        quality: "hd"
       });
       const generatedImageUrl = imageResponse.data?.[0]?.url;
       if (!generatedImageUrl) {
@@ -2924,6 +3180,33 @@ IMPORTANT: Create a stylized artistic portrait, NOT a photograph. The portrait s
     } catch (error) {
       console.error("Error fetching portrait:", error);
       res.status(500).json({ error: "Failed to fetch portrait" });
+    }
+  });
+  app2.post("/api/chat/initial-questions", async (req, res) => {
+    try {
+      const { petSpecies, petBreed, severity } = req.body;
+      const response = await openai2.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are a vet. Generate 4 specific follow-up questions for a ${petSpecies}${petBreed ? ` ${petBreed}` : ""} with a ${severity || "potential"} injury. Return JSON with "questions" array of 4 strings.`
+          },
+          {
+            role: "user",
+            content: `Generate 4 questions to ask owner about this ${petSpecies}${petBreed ? ` ${petBreed}` : ""}'s condition.`
+          }
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 500
+      });
+      const content = response.choices[0].message.content;
+      if (!content) throw new Error("No content");
+      const data = JSON.parse(content);
+      res.json({ questions: data.questions });
+    } catch (error) {
+      console.error("Error generating questions:", error);
+      res.status(500).json({ error: "Failed to generate questions" });
     }
   });
   return createServer(app2);

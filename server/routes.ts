@@ -54,6 +54,17 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Admin Data Route
+  app.get("/api/admin/all-data", async (req, res) => {
+    try {
+      const data = await storage.getAdminAllData();
+      res.json(data);
+    } catch (err: any) {
+      console.error("Admin data fetch error:", err);
+      res.status(500).json({ error: err.message || "Internal server error" });
+    }
+  });
+
   // User sync route
   app.post("/api/auth/sync", async (req, res) => {
     try {

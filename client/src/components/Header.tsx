@@ -104,7 +104,7 @@ export function Header() {
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 md:h-12 md:w-12 p-0 rounded-full border-2 border-muted hover:border-[#ff6b4a] overflow-hidden transition-colors">
+                <Button variant="ghost" className="relative h-10 w-10 md:h-12 md:w-12 p-0 rounded-full border-2 border-muted hover:border-[#ff6b4a] overflow-hidden transition-colors flex-shrink-0">
                   <Avatar className="h-full w-full">
                     <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "Profile"} />
                     <AvatarFallback className="bg-primary/10 text-[#ff6b4a] font-bold text-lg">

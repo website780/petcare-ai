@@ -109,6 +109,9 @@ export interface IStorage {
 
   // Testing
   resetUserForTesting(userId: number): Promise<User>;
+
+  // Admin
+  getAdminAllData(): Promise<any>;
 }
 
 export class PostgresStorage implements IStorage {
@@ -623,6 +626,44 @@ export class PostgresStorage implements IStorage {
     await db.insert(processedPayments).values({
       userId,
       stripeSessionId: sessionId
+    });
+  }
+
+  async getAdminAllData(): Promise<any> {
+    const [
+      allUsers,
+      allPets,
+      allStandaloneScans,
+      allStandaloneVetChats,
+      allPortraits,
+      allReminders,
+      allVetConsultations,
+      allGroomingAppointments,
+      allTrainingAppointments,
+    ] = await Promise.all([
+      db.select().from(users),
+      db.select().from(pets),
+      db.select().from(standaloneScans),
+      db.select().from(standaloneVetChats),
+      db.select().from(petPortraits),
+      db.select().from(reminders),
+      db.select().from(vetConsultations),
+      db.select().from(groomingAppointments),
+      db.select().from(trainingAppointments),
+    ]);
+
+    return allUsers.map(user => {
+      return {
+        ...user,
+        pets: allPets.filter(p => p.userId === user.id),
+        standaloneScans: allStandaloneScans.filter(s => s.userId === user.id),
+        standaloneVetChats: allStandaloneVetChats.filter(c => c.userId === user.id),
+        petPortraits: allPortraits.filter(p => p.userId === user.id),
+        reminders: allReminders.filter(r => r.userId === user.id),
+        vetConsultations: allVetConsultations.filter(c => c.userId === user.id),
+        groomingAppointments: allGroomingAppointments.filter(g => g.userId === user.id),
+        trainingAppointments: allTrainingAppointments.filter(t => t.userId === user.id),
+      };
     });
   }
 }

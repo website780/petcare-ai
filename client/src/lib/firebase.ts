@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, FacebookAuthProvider } from "firebase/auth";
+import { getAuth, FacebookAuthProvider, setPersistence, browserLocalPersistence } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -15,4 +15,5 @@ if (!import.meta.env.VITE_FIREBASE_API_KEY || !import.meta.env.VITE_FIREBASE_PRO
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence).catch(err => console.error("Firebase persistence error:", err));
 export const facebookProvider = new FacebookAuthProvider();
