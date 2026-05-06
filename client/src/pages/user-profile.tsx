@@ -154,23 +154,6 @@ export default function UserProfile() {
                  </div>
               </div>
 
-              <div className="pt-4 flex justify-end">
-                <button
-                  onClick={async () => {
-                    if (confirm("Reset account status for testing purposes?")) {
-                      try {
-                        await apiRequest("POST", "/api/auth/reset-test-account", { userId: user.dbId });
-                        window.location.href = "/";
-                      } catch (error) {
-                        toast({ variant: "destructive", title: "Reset Failed" });
-                      }
-                    }
-                  }}
-                  className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-200 hover:text-slate-400 transition-colors"
-                >
-                  [ System Reset ]
-                </button>
-              </div>
             </div>
           </div>
         </Card>

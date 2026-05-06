@@ -14,6 +14,7 @@ export const users = pgTable("users", {
   freeScanUsed: integer("free_scan_used").default(0), // Legacy
   freeInjuryScanUsed: integer("free_injury_scan_used").default(0), // Legacy
   vetChatCredits: integer("vet_chat_credits").default(2), // Legacy
+  lastPackage: text("last_package"), // Tracks most recent purchase (e.g., 'tier_1', 'tier_2')
   createdAt: timestamp("created_at").defaultNow(),
 });
 

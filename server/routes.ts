@@ -54,7 +54,8 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Admin Data Route
+  /*
+  // Admin Data Route (Disabled for security)
   app.get("/api/admin/all-data", async (req, res) => {
     try {
       const data = await storage.getAdminAllData();
@@ -64,6 +65,7 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ error: err.message || "Internal server error" });
     }
   });
+  */
 
   // User sync route
   app.post("/api/auth/sync", async (req, res) => {
@@ -80,6 +82,10 @@ export function registerRoutes(app: Express): Server {
           photoURL,
           firebaseId,
         });
+        // Grant 40 free welcome tokens on first signup
+        user = await storage.adjustUserTokens(user.id, 40, "welcome", "Welcome Bonus - 40 Free Tokens");
+        user = await storage.updateUser(user.id, { lastPackage: "free" });
+        console.log(`[WELCOME] Granted 40 free tokens to new user ${user.id}`);
       } else {
         // Update existing user
         // Sync profile data
@@ -387,10 +393,10 @@ export function registerRoutes(app: Express): Server {
       }
 
       if (targetUser) {
-        if ((targetUser.appTokenBalance || 0) < 2) {
-          return res.status(402).json({ error: "Insufficient tokens. 2 Tokens required." });
+        if ((targetUser.appTokenBalance || 0) < 5) {
+          return res.status(402).json({ error: "Insufficient tokens. 5 Tokens required for pet profile analysis." });
         }
-        await storage.adjustUserTokens(targetUser.id, -2, "usage", "Pet Profile Analysis");
+        // Token deduction moved to AFTER successful AI response (see below)
       }
 
       console.log("Starting image analysis with OpenAI Vision API");
@@ -459,9 +465,13 @@ export function registerRoutes(app: Express): Server {
 
       const analysis = JSON.parse(content);
 
-      // Increment scan credit AFTER successful AI response
+      // Deduct tokens AFTER successful AI response (Deduct-After-Delivery pattern)
+      if (targetUser) {
+        console.log(`[SCAN-SUCCESS] Deducting 5 tokens for user ${targetUser.id} after successful analysis`);
+        await storage.adjustUserTokens(targetUser.id, -5, "usage", "Pet Profile Analysis");
+      }
+      // Legacy credit tracking
       if (targetUser && Number(targetUser.freeScanUsed || 0) < 2) {
-        console.log(`[SCAN-SUCCESS] Consuming credit for user ${targetUser.id}`);
         await storage.updateUserCredits(targetUser.id, 'freeScanUsed', (Number(targetUser.freeScanUsed || 0) + 1));
       }
 
@@ -499,6 +509,18 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get scan history
+  app.get("/api/standalone/scans/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const scans = await storage.getStandaloneScans(Number(userId));
+      res.json(scans);
+    } catch (error) {
+      console.error("Error fetching standalone scans:", error);
+      res.status(500).json({ error: "Failed to fetch scan history" });
+    }
+  });
+
   // Save scan and handle free scan logic
   app.post("/api/standalone/scan", async (req, res) => {
     try {
@@ -509,12 +531,9 @@ export function registerRoutes(app: Express): Server {
 
       let isPaid = 1;
       
-      if ((user.appTokenBalance || 0) < 3) {
-        return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
+      if ((user.appTokenBalance || 0) < 20) {
+        return res.status(402).json({ error: "Insufficient tokens. 20 Tokens required for injury scan." });
       }
-      
-      console.log(`[SCAN-INJURY] Consuming 3 Tokens for user ${user.id}`);
-      await storage.adjustUserTokens(user.id, -3, "usage", "AI Injury Scan");
 
       const scan = await storage.createStandaloneScan({
         userId,
@@ -524,9 +543,13 @@ export function registerRoutes(app: Express): Server {
         isPaid
       });
 
+      // Deduct tokens AFTER successful save (Deduct-After-Delivery)
+      console.log(`[SCAN-INJURY] Deducting 20 Tokens for user ${user.id} after successful scan save`);
+      await storage.adjustUserTokens(user.id, -20, "usage", "AI Injury Scan");
+
       res.json({ 
         scanId: scan.id, 
-        isPaid: Boolean(isPaid || scan.isPaid) // Be very explicit
+        isPaid: Boolean(isPaid || scan.isPaid)
       });
     } catch (error) {
       console.error("Error saving scan:", error);
@@ -556,23 +579,20 @@ export function registerRoutes(app: Express): Server {
           // Token Pack Pricing:
           if (metadata?.package === "tier_1") {
             amount = 999; // $9.99
-            description = "Pet AI Companion - Starter Pack (50 Tokens)";
+            description = "Pet AI Companion - Starter Pack (150 Tokens)";
           } else if (metadata?.package === "tier_2" || metadata?.package === "100_credits") {
             amount = 1999; // $19.99
-            description = "Pet AI Companion - Pro Pack (100 Tokens)";
-          } else if (metadata?.package === "tier_3") {
-            amount = 4999; // $49.99
-            description = "Pet AI Companion - Value Pack (400 Tokens)";
+            description = "Pet AI Companion - Pro Pack (350 Tokens)";
           } else if (metadata?.package === "20_credits") {
             amount = 500; // $5.00
             description = "Pet AI Companion - 20 Universal Credits";
           } else {
             amount = 1999;
-            description = "Pet AI Companion - Pro Pack (100 Tokens)";
+            description = "Pet AI Companion - Pro Pack (350 Tokens)";
           }
         } else if (type.startsWith("portrait")) {
-          // If it's a simple download (portrait_hd), default to $9.00
-          amount = 900;
+          // If it's a simple download (portrait_hd), default to $9.95
+          amount = 995;
           description = "Pet AI Companion - Professional HD Portrait";
 
           if (type === "portrait_print") {
@@ -653,8 +673,8 @@ export function registerRoutes(app: Express): Server {
     // ANTI-EXPLOIT: Check if this session has already been processed
     const alreadyProcessed = await storage.isPaymentProcessed(session.id);
     if (alreadyProcessed) {
-      console.warn(`[Stripe-Fulfillment] REJECTED: Session ${session.id} already processed.`);
-      return false; // Stop right here to prevent double-fulfillment
+      console.warn(`[Stripe-Fulfillment] REJECTED: Session ${session.id} already processed. Treating as success for UI.`);
+      return true; // Return true so the UI shows success even if webhook already did the work
     }
     
     // Extract ID and metadata safely
@@ -699,18 +719,15 @@ export function registerRoutes(app: Express): Server {
         if (typePart === "credit_topup") {
           const packageType = session.metadata?.package;
           const amount = session.amount_total || 0;
-          let tokensToAdd = 100;
+          let tokensToAdd = 150;
           let planName = "Token Top-up";
 
           if (packageType === "tier_1" || amount === 999) {
-            tokensToAdd = 50;
-            planName = "Starter Pack (50 Tokens)";
+            tokensToAdd = 150;
+            planName = "Starter Pack (150 Tokens)";
           } else if (packageType === "tier_2" || amount === 1999) {
-            tokensToAdd = 100;
-            planName = "Pro Pack (100 Tokens)";
-          } else if (packageType === "tier_3" || amount === 4999) {
-            tokensToAdd = 400;
-            planName = "Value Pack (400 Tokens)";
+            tokensToAdd = 350;
+            planName = "Pro Pack (350 Tokens)";
           } else if (packageType === "20_credits") {
             tokensToAdd = 20;
             planName = "Legacy 20 Pack";
@@ -720,6 +737,14 @@ export function registerRoutes(app: Express): Server {
           }
           
           await storage.adjustUserTokens(user.id, tokensToAdd, "top_up", planName);
+          
+          // Save the last package type for "Current Plan" display on pricing page
+          if (packageType === "tier_1" || packageType === "tier_2") {
+            await storage.updateUser(user.id, { lastPackage: packageType });
+          } else if (packageType === "free") {
+            await storage.updateUser(user.id, { lastPackage: "free" });
+          }
+          
           wasFulfilled = true;
         } else if (session.amount_total === 1500 || typePart === "vet_chat_pack" || typePart === "vet_chat") {
           await storage.updateUserCredits(user.id, 'vetChatCredits', (user.vetChatCredits || 0) + 5);
@@ -1133,13 +1158,12 @@ Pet Owner: ${message}`
       const user = await storage.getUser(Number(userId));
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      // API Token System Check (3 credits per message)
-      if ((user.appTokenBalance || 0) < 3) {
-        return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
+      // API Token System Check (10 credits per message)
+      if ((user.appTokenBalance || 0) < 10) {
+        return res.status(402).json({ error: "Insufficient tokens. 10 Tokens required per message." });
       }
       
-      console.log(`[CHAT] Consuming 3 Tokens for user ${user.id}`);
-      await storage.adjustUserTokens(user.id, -3, "usage", "AI Vet Consultation");
+      // Token deduction moved to AFTER successful AI response (Deduct-After-Delivery)
 
       if (!message) {
         return res.status(400).json({ error: "No message provided" });
@@ -1232,8 +1256,10 @@ Pet Owner: ${message}`
         throw new Error("No response generated");
       }
 
-      // NUCLEAR FIX: Only decrement credit AFTER successful AI response
-      console.log(`[VET-CHAT-SUCCESS] Decrementing credit for user ${user.id}. Previous: ${user.vetChatCredits}`);
+      // Deduct tokens AFTER successful AI response (Deduct-After-Delivery)
+      console.log(`[VET-CHAT-SUCCESS] Deducting 10 tokens for user ${user.id} after successful response`);
+      await storage.adjustUserTokens(user.id, -10, "usage", "AI Vet Consultation");
+      // Legacy credit tracking
       await storage.updateUserCredits(user.id, 'vetChatCredits', Math.max(0, (user.vetChatCredits || 0) - 1));
       
       res.json({ response: responseContent });
@@ -1247,7 +1273,31 @@ Pet Owner: ${message}`
     }
   });
 
-  // Standalone Vet Chat Persistence
+  // Get standalone vet chat history (all chats)
+  app.get("/api/standalone/vet-chat/history/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const chats = await storage.getStandaloneVetChats(Number(userId));
+      res.json(chats);
+    } catch (error) {
+      console.error("Error fetching vet chats:", error);
+      res.status(500).json({ error: "Failed to fetch vet chat history" });
+    }
+  });
+
+  // Get user pet portraits
+  app.get("/api/users/:userId/portraits", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const portraits = await storage.getPetPortraits(Number(userId));
+      res.json(portraits);
+    } catch (error) {
+      console.error("Error fetching portraits:", error);
+      res.status(500).json({ error: "Failed to fetch pet portraits" });
+    }
+  });
+
+  // Standalone Vet Chat Persistence (Latest)
   app.get("/api/standalone/vet-chat/latest", async (req, res) => {
     try {
       const { userId } = req.query;
@@ -1812,8 +1862,13 @@ Pet Owner: ${message}`
   app.post("/api/tokens/deduct", async (req, res) => {
     try {
       const { userId, amount, reason } = req.body;
-      if (!userId || !amount) {
+      if (!userId || amount === undefined) {
         return res.status(400).json({ error: "userId and amount are required" });
+      }
+
+      // Security: Ensure amount is positive to prevent token inflation
+      if (amount <= 0) {
+        return res.status(400).json({ error: "Invalid amount. Deduction must be greater than zero." });
       }
 
       const user = await storage.getUser(Number(userId));
@@ -2191,11 +2246,11 @@ Always respond in valid JSON format.`
       const user = await storage.getUser(Number(userId));
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      if ((user.appTokenBalance || 0) < 3) {
-        return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
+      if ((user.appTokenBalance || 0) < 20) {
+        return res.status(402).json({ error: "Insufficient tokens. 20 Tokens required for portrait generation." });
       }
 
-      await storage.adjustUserTokens(user.id, -3, "usage", "AI Portrait Generation");
+      // Token deduction moved to AFTER successful generation (Deduct-After-Delivery)
 
       if (!process.env.OPENAI_API_KEY) {
         return res.status(500).json({ error: "OpenAI API is not configured" });
@@ -2269,6 +2324,10 @@ Always respond in valid JSON format.`
         paymentType: null,
       });
 
+      // Deduct tokens AFTER successful portrait generation (Deduct-After-Delivery)
+      console.log(`[PORTRAIT] Deducting 20 tokens for user ${user.id} after successful generation`);
+      await storage.adjustUserTokens(user.id, -20, "usage", "AI Portrait Generation");
+
       res.json({
         id: portrait.id,
         portraitImageUrl: portraitBase64,
@@ -2295,6 +2354,56 @@ Always respond in valid JSON format.`
     } catch (error) {
       console.error("Error fetching portraits:", error);
       res.status(500).json({ error: "Failed to fetch portraits" });
+    }
+  });
+
+  // Standalone Scan History
+  app.get("/api/standalone/scans/:userId", async (req, res) => {
+    try {
+      const userId = Number(req.params.userId);
+      const scans = await storage.getStandaloneScans(userId);
+      res.json(scans);
+    } catch (error) {
+      console.error("Error fetching scans:", error);
+      res.status(500).json({ error: "Failed to fetch scans" });
+    }
+  });
+
+  app.post("/api/standalone/scans", async (req, res) => {
+    try {
+      const scan = await storage.createStandaloneScan(req.body);
+      res.json(scan);
+    } catch (error) {
+      console.error("Error saving scan:", error);
+      res.status(500).json({ error: "Failed to save scan" });
+    }
+  });
+
+  // Standalone Vet Chat History
+  app.get("/api/standalone/vet-chat/history/:userId", async (req, res) => {
+    try {
+      const userId = Number(req.params.userId);
+      const chats = await storage.getStandaloneVetChats(userId);
+      res.json(chats);
+    } catch (error) {
+      console.error("Error fetching vet chats:", error);
+      res.status(500).json({ error: "Failed to fetch vet chats" });
+    }
+  });
+
+  app.post("/api/standalone/vet-chat", async (req, res) => {
+    try {
+      const { id, ...chatData } = req.body;
+      if (id) {
+        const updated = await storage.updateStandaloneVetChat(id, chatData);
+        res.json(updated);
+      } else {
+        const chat = await storage.createStandaloneVetChat(chatData);
+        res.json(chat);
+      }
+    } catch (error) {
+      console.error("Error saving vet chat:", error);
+      res.status(500).json({ error: "Failed to save vet chat" });
     }
   });
 

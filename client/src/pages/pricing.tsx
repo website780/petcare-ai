@@ -5,44 +5,45 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Sparkles, Zap, Trophy, ArrowRight, ArrowLeft } from "lucide-react";
+import { Check, Sparkles, Zap, Trophy, ArrowRight, ArrowLeft, Gift } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 
 const PRICING_TIERS = [
   {
+    id: "free",
+    name: "Free Plan",
+    tokens: 40,
+    price: 0,
+    description: "Get started with 40 free tokens on your first signup.",
+    icon: Gift,
+    color: "from-emerald-500 to-teal-600",
+    shadow: "shadow-emerald-500/20",
+    isFree: true,
+    features: ["40 Welcome Tokens (one-time)", "Access all AI features", "No credit card required", "Use tokens across all services"]
+  },
+  {
     id: "tier_1",
     name: "Starter Pack",
-    tokens: 50,
+    tokens: 150,
     price: 9.99,
-    description: "Perfect for a few medical checks and portraits.",
+    description: "Perfect for regular pet wellness tracking.",
     icon: Zap,
     color: "from-blue-500 to-indigo-600",
     shadow: "shadow-blue-500/20",
-    features: ["50 Universal Tokens", "Valid for all AI services", "Instant fulfillment", "No expiration"]
+    features: ["150 Universal Tokens", "Valid for all AI services", "Instant fulfillment", "No expiration"]
   },
   {
     id: "tier_2",
     name: "Pro Pack",
-    tokens: 100,
+    tokens: 350,
     price: 19.99,
-    description: "The best choice for regular pet wellness tracking.",
+    description: "The best value for multi-pet households.",
     icon: Sparkles,
     color: "from-[#ff6b4a] to-orange-600",
     shadow: "shadow-orange-500/20",
     featured: true,
-    features: ["100 Universal Tokens", "Priority AI Processing", "Valid for all AI services", "Instant fulfillment", "No expiration"]
-  },
-  {
-    id: "tier_3",
-    name: "Value Pack",
-    tokens: 400,
-    price: 49.99,
-    description: "Maximum savings for multi-pet households.",
-    icon: Trophy,
-    color: "from-purple-600 to-pink-600",
-    shadow: "shadow-purple-500/20",
-    features: ["400 Universal Tokens", "White-glove Support", "Valid for all AI services", "Instant fulfillment", "No expiration"]
+    features: ["350 Universal Tokens", "Priority AI Processing", "Valid for all AI services", "Instant fulfillment", "No expiration"]
   }
 ];
 
@@ -138,8 +139,8 @@ export default function Pricing() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 * (idx + 3) }}
             >
-              <Card className={`relative overflow-hidden border-0 ${tier.shadow} ${tier.featured ? 'scale-105 z-10' : ''} bg-white dark:bg-gray-900 rounded-[2.5rem] transition-all duration-500 hover:-translate-y-2`}>
-                {tier.featured && (
+              <Card className={`relative overflow-hidden border-0 ${tier.shadow} ${(tier as any).featured ? 'scale-105 z-10' : ''} bg-white dark:bg-gray-900 rounded-[2.5rem] transition-all duration-500 hover:-translate-y-2`}>
+                {(tier as any).featured && (
                   <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-r from-[#ff6b4a] to-orange-600" />
                 )}
                 
@@ -153,13 +154,23 @@ export default function Pricing() {
 
                 <CardContent className="px-8 py-6">
                   <div className="flex items-baseline gap-1 mb-8">
-                    <span className="text-5xl font-black tracking-tighter">${tier.price}</span>
-                    <span className="text-muted-foreground font-bold text-sm tracking-wider uppercase">USD</span>
+                    {(tier as any).isFree ? (
+                      <span className="text-5xl font-black tracking-tighter">Free</span>
+                    ) : (
+                      <>
+                        <span className="text-5xl font-black tracking-tighter">${tier.price}</span>
+                        <span className="text-muted-foreground font-bold text-sm tracking-wider uppercase">USD</span>
+                      </>
+                    )}
                   </div>
 
                   <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 mb-8">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Inlcudes</p>
-                    <p className="text-xl font-black text-gray-900 dark:text-white">{tier.tokens} Universal Tokens</p>
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">
+                      {(tier as any).isFree ? 'Your Balance' : 'Includes'}
+                    </p>
+                    <p className="text-xl font-black text-gray-900 dark:text-white">
+                      {(tier as any).isFree ? `${user?.appTokenBalance || 0} Tokens` : `${tier.tokens} Universal Tokens`}
+                    </p>
                   </div>
 
                   <div className="space-y-4">
@@ -175,21 +186,29 @@ export default function Pricing() {
                 </CardContent>
 
                 <CardFooter className="px-8 pb-10">
-                  <Button
-                    onClick={() => handlePurchase(tier.id)}
-                    disabled={loadingTier === tier.id}
-                    className={`w-full h-14 rounded-2xl font-bold text-lg transition-all duration-300 ${
-                      tier.featured 
-                        ? 'bg-[#ff6b4a] hover:bg-[#e05a3b] text-white shadow-orange-500/40 hover:shadow-xl' 
-                        : 'bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-200 dark:text-black text-white hover:shadow-lg'
-                    }`}
-                  >
-                    {loadingTier === tier.id ? (
-                      <Zap className="w-6 h-6 animate-pulse" />
-                    ) : (
-                      <>Select Pack <ArrowRight className="w-5 h-5 ml-2" /></>
-                    )}
-                  </Button>
+                  {((tier.id === 'free' && (!user?.lastPackage || user?.lastPackage === 'free')) || user?.lastPackage === tier.id) ? (
+                    <div className="w-full h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border-2 border-emerald-200 dark:border-emerald-800 flex items-center justify-center gap-2 font-bold text-emerald-700 dark:text-emerald-400">
+                      <Check className="w-5 h-5" /> Current Plan
+                    </div>
+                  ) : tier.id === 'free' ? (
+                    <div className="w-full h-14" /> // Keep blank for free tier if not current
+                  ) : (
+                    <Button
+                      onClick={() => handlePurchase(tier.id)}
+                      disabled={loadingTier === tier.id}
+                      className={`w-full h-14 rounded-2xl font-bold text-lg transition-all duration-300 ${
+                        (tier as any).featured 
+                          ? 'bg-[#ff6b4a] hover:bg-[#e05a3b] text-white shadow-orange-500/40 hover:shadow-xl' 
+                          : 'bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-200 dark:text-black text-white hover:shadow-lg'
+                      }`}
+                    >
+                      {loadingTier === tier.id ? (
+                        <Zap className="w-6 h-6 animate-pulse" />
+                      ) : (
+                        <>Select Pack <ArrowRight className="w-5 h-5 ml-2" /></>
+                      )}
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             </motion.div>

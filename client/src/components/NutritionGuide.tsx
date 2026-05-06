@@ -364,8 +364,8 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
               <Form {...nutritionForm}>
                 <form
                   onSubmit={nutritionForm.handleSubmit((data) => {
-                    if ((user?.appTokenBalance ?? 0) < 3) {
-                      toast({ variant: "destructive", title: "Insufficient Tokens", description: "3 Tokens required for AI Nutrition analysis. Please top up." });
+                    if ((user?.appTokenBalance ?? 0) < 5) {
+                      toast({ variant: "destructive", title: "Insufficient Tokens", description: "5 Tokens required for AI Nutrition analysis. Please top up." });
                       return;
                     }
                     analyzeNutrition.mutate(data);
@@ -441,7 +441,7 @@ export function NutritionGuide({ pet }: { pet: Pet }) {
                     )}
                   />
                   <Button type="submit" disabled={analyzeNutrition.isPending} className="w-full">
-                    {analyzeNutrition.isPending ? "Analyzing..." : "🪙 3 Tokens - Get AI Nutrition Plan"}
+                    {analyzeNutrition.isPending ? "Analyzing..." : "🪙 5 Tokens - Get AI Nutrition Plan"}
                   </Button>
                 </form>
               </Form>

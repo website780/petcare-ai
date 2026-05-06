@@ -95,6 +95,7 @@ export interface IStorage {
   // Standalone scan operations
   createStandaloneScan(scan: any): Promise<StandaloneScan>;
   getStandaloneScan(id: number): Promise<StandaloneScan | undefined>;
+  getStandaloneScans(userId: number): Promise<StandaloneScan[]>;
   updateStandaloneScan(id: number, updates: Partial<StandaloneScan>): Promise<StandaloneScan>;
   
   // Standalone vet chat operations
@@ -149,6 +150,9 @@ export class PostgresStorage implements IStorage {
     }
     if (updates.photoURL !== undefined) {
       await (db as any).execute(sql`UPDATE users SET photo_url = ${updates.photoURL} WHERE id = ${id}`);
+    }
+    if (updates.lastPackage !== undefined) {
+      await (db as any).execute(sql`UPDATE users SET last_package = ${updates.lastPackage} WHERE id = ${id}`);
     }
 
     const updated = await this.getUser(id);
@@ -580,6 +584,13 @@ export class PostgresStorage implements IStorage {
   async getStandaloneScan(id: number): Promise<StandaloneScan | undefined> {
     const [scan] = await db.select().from(standaloneScans).where(eq(standaloneScans.id, id));
     return scan;
+  }
+
+  async getStandaloneScans(userId: number): Promise<StandaloneScan[]> {
+    return db.select()
+      .from(standaloneScans)
+      .where(eq(standaloneScans.userId, userId))
+      .orderBy(desc(standaloneScans.createdAt));
   }
 
   async updateStandaloneScan(id: number, updates: Partial<StandaloneScan>): Promise<StandaloneScan> {

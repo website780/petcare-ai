@@ -22,6 +22,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Pet, insertPetSchema } from "@shared/schema";
 import { HealthAssessmentQuiz } from "@/components/HealthAssessmentQuiz";
 import { VetConsultation } from "@/components/VetConsultation";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { History } from "lucide-react";
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -128,10 +131,17 @@ export function VetChatStandalone() {
   const [isCreatingPet, setIsCreatingPet] = useState(false);
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
   const [isFetchingQuestions, setIsFetchingQuestions] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  // Fetch vet chat history
+  const { data: chatHistoryList = [], isLoading: isLoadingHistory } = useQuery<any[]>({
+    queryKey: [`/api/standalone/vet-chat/history/${user?.dbId}`],
+    enabled: !!user?.dbId,
+  });
   
   // Pet Data
   const [petInfo, setPetInfo] = useState<{
@@ -221,7 +231,7 @@ export function VetChatStandalone() {
 
   // AUTO-UNLOCK POLLING
   useEffect(() => {
-    if (!user?.email || (Number(user?.vetChatCredits ?? 0) > 0)) return;
+    if (!user?.email || (Number(user?.appTokenBalance ?? 0) > 0)) return;
     
     const interval = setInterval(async () => {
       try {
@@ -242,13 +252,34 @@ export function VetChatStandalone() {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [user?.email, user?.vetChatCredits]);
+  }, [user?.email, user?.appTokenBalance]);
 
   // Load latest chat on mount and Handle persistence
   useEffect(() => {
     if (loading) return;
 
     const loadLatestChat = async () => {
+      // 0. Check for localStorage breadcrumb (session recovery)
+      try {
+        const breadcrumb = localStorage.getItem('petai_vetchat_breadcrumb');
+        if (breadcrumb) {
+          const saved = JSON.parse(breadcrumb);
+          if (saved.timestamp && (Date.now() - saved.timestamp) < 30 * 60 * 1000) {
+            if (saved.petInfo) setPetInfo(saved.petInfo);
+            if (saved.chatHistory) setChatHistory(saved.chatHistory);
+            if (saved.currentChatId) setCurrentChatId(saved.currentChatId);
+            if (saved.selectedPetId) setSelectedPetId(saved.selectedPetId);
+            setStep("chat");
+            setIsInitialLoading(false);
+            toast({ title: "Session Recovered", description: "Your chat was interrupted. No tokens were charged for the unsent message." });
+            localStorage.removeItem('petai_vetchat_breadcrumb');
+            return;
+          } else {
+            localStorage.removeItem('petai_vetchat_breadcrumb');
+          }
+        }
+      } catch (e) { /* ignore */ }
+
       // 1. Detect injury handoff from URL
       const params = new URLSearchParams(window.location.search);
       const injuryContextRaw = params.get("injuryContext");
@@ -349,11 +380,11 @@ export function VetChatStandalone() {
 
   const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
     const tokens = Number(user?.appTokenBalance ?? 0);
-    if (tokens < 2) {
+    if (tokens < 5) {
       toast({ 
         variant: "destructive", 
         title: "Insufficient Tokens", 
-        description: "Creating a new pet profile requires 2 tokens. Please top up your wallet." 
+        description: "Creating a new pet profile requires 5 tokens. Please top up your wallet." 
       });
       handleBuyCredits();
       return;
@@ -456,7 +487,7 @@ export function VetChatStandalone() {
     onDrop: handleNewPetPhotoUpload,
     accept: { "image/*": [".jpeg", ".jpg", ".png"] },
     maxFiles: 1,
-    disabled: isCreatingPet || (Number(user?.appTokenBalance ?? 0) < 2),
+    disabled: isCreatingPet || (Number(user?.appTokenBalance ?? 0) < 5),
   });
 
   const handleSendMessage = async (overrideMessage?: string) => {
@@ -464,7 +495,7 @@ export function VetChatStandalone() {
     if (!message) return;
 
     const tokensRemaining = Number(user?.appTokenBalance ?? 0);
-    if (tokensRemaining < 3) {
+    if (tokensRemaining < 10) {
       handleBuyCredits();
       return;
     }
@@ -474,6 +505,18 @@ export function VetChatStandalone() {
     setChatHistory(updatedHistory);
     setInputMessage("");
     setIsSending(true);
+
+    // Save breadcrumb to localStorage before long operation
+    try {
+      localStorage.setItem('petai_vetchat_breadcrumb', JSON.stringify({
+        step: 'sending',
+        petInfo,
+        chatHistory: updatedHistory,
+        currentChatId,
+        selectedPetId,
+        timestamp: Date.now()
+      }));
+    } catch (e) { /* localStorage might be full */ }
 
     syncChat(updatedHistory);
 
@@ -498,8 +541,12 @@ export function VetChatStandalone() {
       const finalHistory: ChatMessage[] = [...updatedHistory, { role: "assistant", content: data.response, timestamp: new Date() }];
       setChatHistory(finalHistory);
       syncChat(finalHistory);
+      // Clear breadcrumb on success
+      localStorage.removeItem('petai_vetchat_breadcrumb');
       await refreshUser();
     } catch (err) {
+      // Clear breadcrumb on failure (tokens weren't deducted)
+      localStorage.removeItem('petai_vetchat_breadcrumb');
       toast({ variant: "destructive", title: "Error", description: "Your credit limit has been reached or there was a network error. Please top up to continue." });
     } finally {
       setIsSending(false);
@@ -521,14 +568,63 @@ export function VetChatStandalone() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4 pb-10 pt-2 md:pt-4">
-      <Button 
-        variant="ghost" 
-        onClick={() => setLocation("/")}
-        className="hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a] transition-all group rounded-2xl"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
-        Back to Dashboard
-      </Button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-4 sm:px-0">
+        <Button 
+          variant="ghost" 
+          onClick={() => setLocation("/")}
+          className="hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a] transition-all group rounded-2xl"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
+          Back to Dashboard
+        </Button>
+
+        <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="gap-2 border-[#ff6b4a]/20 text-[#ff6b4a] hover:bg-[#ff6b4a]/5">
+              <History className="w-4 h-4" />
+              Chat History
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Past Vet Consultations</DialogTitle>
+              <DialogDescription>Review your previous conversations with the AI Vet.</DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="flex-1 pr-4">
+              {isLoadingHistory ? (
+                <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+              ) : chatHistoryList.length === 0 ? (
+                <div className="text-center p-8 text-muted-foreground">No past chats found.</div>
+              ) : (
+                <div className="space-y-4">
+                  {chatHistoryList.map((chat: any) => (
+                    <Card key={chat.id} className="overflow-hidden hover:border-[#ff6b4a]/40 transition-colors cursor-pointer" onClick={() => {
+                      setPetInfo(chat.petInfo || { species: "", breed: "", weight: "", age: "", gender: "" });
+                      setChatHistory(chat.chatHistory || []);
+                      setCurrentChatId(chat.id);
+                      setIsHistoryOpen(false);
+                      setStep("chat");
+                    }}>
+                      <div className="flex items-center gap-4 p-4">
+                        <div className="w-12 h-12 rounded-full bg-[#ff6b4a]/10 flex items-center justify-center shrink-0">
+                          <Stethoscope className="w-6 h-6 text-[#ff6b4a]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold truncate">{chat.petInfo?.species || "Pet"} Consultation</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(chat.createdAt).toLocaleDateString()} • {chat.chatHistory?.length || 0} messages
+                          </p>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+      </div>
       {step === "pet_select" && (
         <div className="space-y-6">
           {isLoadingPets ? (
@@ -729,8 +825,8 @@ export function VetChatStandalone() {
                       }
 
                       const tokens = user ? Number(user.appTokenBalance ?? 0) : 0;
-                      if (tokens < 3) {
-                        toast({ variant: "destructive", title: "Insufficient Tokens", description: "3 Tokens required for a vet chat."});
+                      if (tokens < 5) {
+                        toast({ variant: "destructive", title: "Insufficient Tokens", description: "5 Tokens required for a vet chat."});
                         handleBuyCredits();
                       } else {
                         setStep("chat");
@@ -767,18 +863,12 @@ export function VetChatStandalone() {
                   Veterinary Care
                 </CardTitle>
                 <CardDescription className="px-6 pb-2">Comprehensive health tracking and assessment tools</CardDescription>
-                <Tabs defaultValue="consultation" className="w-full">
+                <Tabs defaultValue="assessment" className="w-full">
                   <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-12 px-6">
-                    <TabsTrigger value="consultation" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-bold">
-                      Consultation
-                    </TabsTrigger>
                     <TabsTrigger value="assessment" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-bold">
                       Health Assessment
                     </TabsTrigger>
                   </TabsList>
-                  <TabsContent value="consultation" className="p-6 mt-0">
-                    <VetConsultation pet={pets?.find(p => p.id === selectedPetId) || (pets && pets[0])!} />
-                  </TabsContent>
                   <TabsContent value="assessment" className="p-6 mt-0">
                     <HealthAssessmentQuiz pet={pets?.find(p => p.id === selectedPetId) || (pets && pets[0])!} />
                   </TabsContent>
@@ -801,8 +891,8 @@ export function VetChatStandalone() {
                   className="cursor-pointer hover:border-[#ff6b4a] hover:bg-[#ff6b4a]/5 transition-all group overflow-hidden border-2"
                   onClick={() => {
                     const tokens = user ? Number(user.appTokenBalance ?? 0) : 0;
-                    if (tokens < 3) {
-                      toast({ variant: "destructive", title: "Insufficient Tokens", description: "3 Tokens required for a vet chat."});
+                    if (tokens < 10) {
+                      toast({ variant: "destructive", title: "Insufficient Tokens", description: "10 Tokens required for a vet chat."});
                       handleBuyCredits();
                       return;
                     }
@@ -821,11 +911,12 @@ export function VetChatStandalone() {
                           className="w-full text-left text-[11px] text-[#ff6b4a] bg-[#ff6b4a]/5 hover:bg-[#ff6b4a]/10 p-2 rounded-lg transition-colors font-medium border border-[#ff6b4a]/20"
                           onClick={(e) => {
                             e.stopPropagation();
-                            const credits = user ? Number(user.vetChatCredits ?? 0) : 0;
-                            if (credits <= 0) {
-                              handleBuyCredits();
-                              return;
-                            }
+                             const tokens = user ? Number(user.appTokenBalance ?? 0) : 0;
+                             if (tokens < 10) {
+                               toast({ variant: "destructive", title: "Insufficient Tokens", description: "10 Tokens required per message. Please top up." });
+                               handleBuyCredits();
+                               return;
+                             }
                             setStep("chat");
                             handleSendMessage(example);
                           }}
@@ -967,12 +1058,12 @@ export function VetChatStandalone() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center text-sm">
                   <span>Tokens Remaining</span>
-                  <Badge variant={(user?.appTokenBalance ?? 0) < 3 ? "destructive" : "secondary"} className="text-lg">
+                  <Badge variant={(user?.appTokenBalance ?? 0) < 10 ? "destructive" : "secondary"} className="text-lg">
                     {user?.appTokenBalance ?? 0}
                   </Badge>
                 </div>
                 
-                {(user?.appTokenBalance ?? 0) < 3 && (
+                {(user?.appTokenBalance ?? 0) < 10 && (
                   <Alert className="bg-amber-50/50 border-amber-200 py-3">
                     <Sparkles className="w-4 h-4 text-amber-500" />
                     <AlertDescription className="text-xs">

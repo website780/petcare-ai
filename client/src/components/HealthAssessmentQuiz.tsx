@@ -14,6 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertTriangle, ActivitySquare } from "lucide-react";
 import { Pet } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface HealthAssessmentQuizProps {
   pet: Pet;
@@ -206,6 +209,9 @@ export function HealthAssessmentQuiz({ pet }: HealthAssessmentQuizProps) {
   const [notes, setNotes] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
+  const { user, refreshUser } = useAuth();
+  const { toast } = useToast();
+  const [isDeducting, setIsDeducting] = useState(false);
 
   const handleAnswer = (value: string) => {
     setAnswers((prev) => ({
@@ -265,13 +271,48 @@ export function HealthAssessmentQuiz({ pet }: HealthAssessmentQuizProps) {
     return false;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion((prev) => prev + 1);
     } else {
-      const quizResults = calculateResults(answers, notes);
-      setResults(quizResults);
-      setShowResults(true);
+      // FINAL STEP: Token Deduction
+      if ((user?.appTokenBalance || 0) < 3) {
+        toast({
+          variant: "destructive",
+          title: "Insufficient Tokens",
+          description: "3 Tokens required for AI Health Assessment. Please top up your wallet."
+        });
+        return;
+      }
+
+      setIsDeducting(true);
+      try {
+        const res = await apiRequest("POST", "/api/tokens/deduct", {
+          userId: user?.dbId,
+          amount: 3,
+          reason: `AI Health Assessment: ${pet.name}`
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Token deduction failed");
+        }
+
+        // Update local user state in real-time
+        await refreshUser();
+
+        const quizResults = calculateResults(answers, notes);
+        setResults(quizResults);
+        setShowResults(true);
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "System Error",
+          description: error.message || "Failed to process tokens. Please try again."
+        });
+      } finally {
+        setIsDeducting(false);
+      }
     }
   };
 
@@ -306,7 +347,10 @@ export function HealthAssessmentQuiz({ pet }: HealthAssessmentQuizProps) {
           className="w-full h-14 rounded-2xl border-black/[0.08] hover:border-[#ff6b4a]/40 hover:bg-[#ff6b4a]/5 group transition-all"
         >
           <ActivitySquare className="mr-3 h-5 w-5 text-[#ff6b4a] group-hover:scale-110 transition-transform" />
-          <span className="font-black tracking-tight">Initiate Health Diagnostic</span>
+          <div className="flex flex-col items-start">
+            <span className="font-black tracking-tight">Initiate Health Diagnostic</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">🪙 3 Tokens Required</span>
+          </div>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl flex flex-col">
@@ -431,10 +475,10 @@ export function HealthAssessmentQuiz({ pet }: HealthAssessmentQuizProps) {
                   )}
                   <Button
                     onClick={handleNext}
-                    disabled={getIsNextDisabled()}
+                    disabled={getIsNextDisabled() || isDeducting}
                     className="flex-[2] h-12 rounded-xl bg-black hover:bg-black/90 font-black text-xs uppercase tracking-widest text-white transition-all shadow-lg"
                   >
-                    {currentQuestion === questions.length - 1 ? "Extract Intelligence" : "Next Module"}
+                    {isDeducting ? "Processing Tokens..." : (currentQuestion === questions.length - 1 ? "🪙 3 Tokens - Extract Intelligence" : "Next Module")}
                   </Button>
                 </div>
               </div>

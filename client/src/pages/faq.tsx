@@ -13,7 +13,7 @@ const FAQS = [
   },
   {
     question: "How many tokens do features cost?",
-    answer: "We keep it simple: \n• AI Injury Scan: 3 Tokens\n• AI Vet Consultation: 3 Tokens\n• AI Portrait Generation: 3 Tokens\n• New Pet Profile Analysis: 2 Tokens\n• Nutritional Analysis: 3 Tokens"
+    answer: "We keep it simple: \n• AI Injury Scan: 20 Tokens\n• AI Vet Consultation: 10 Tokens\n• AI Portrait Generation: 20 Tokens\n• New Pet Profile Analysis: 5 Tokens"
   },
   {
     question: "Do my tokens ever expire?",

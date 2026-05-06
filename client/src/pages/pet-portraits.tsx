@@ -121,16 +121,46 @@ export default function PetPortraits() {
     reader.readAsDataURL(file);
   }, [toast]);
 
+  // Check for breadcrumb on mount
+  useEffect(() => {
+    try {
+      const breadcrumb = localStorage.getItem('petai_portrait_breadcrumb');
+      if (breadcrumb) {
+        const saved = JSON.parse(breadcrumb);
+        if (saved.timestamp && (Date.now() - saved.timestamp) < 30 * 60 * 1000) {
+          if (saved.uploadedImage) setUploadedImage(saved.uploadedImage);
+          if (saved.selectedStyle) setSelectedStyle(saved.selectedStyle);
+          setStep("style"); // Allow them to hit generate again since tokens weren't lost
+          toast({ title: "Session Recovered", description: "Your generation was interrupted. No tokens were charged. You can try again." });
+          localStorage.removeItem('petai_portrait_breadcrumb');
+        } else {
+          localStorage.removeItem('petai_portrait_breadcrumb');
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }, []);
+
   const handleGenerate = async () => {
     if (!uploadedImage || !selectedStyle) return;
     if (!user) {
       toast({ title: "Login Required", description: "Please sign in to generate your pet portrait." });
       return;
     }
-    if ((user.appTokenBalance || 0) < 3) {
-      toast({ variant: "destructive", title: "Insufficient Tokens", description: "3 Tokens required to generate a portrait. Please top up." });
+    if ((user.appTokenBalance || 0) < 20) {
+      toast({ variant: "destructive", title: "Insufficient Tokens", description: "20 Tokens required to generate a portrait. Please top up." });
       return;
     }
+
+    // Save breadcrumb to localStorage
+    try {
+      localStorage.setItem('petai_portrait_breadcrumb', JSON.stringify({
+        step: 'generating',
+        uploadedImage,
+        selectedStyle,
+        timestamp: Date.now()
+      }));
+    } catch (e) { /* ignore */ }
+
     setIsGenerating(true);
     try {
       const response = await apiRequest("POST", "/api/portraits/generate", {
@@ -142,10 +172,14 @@ export default function PetPortraits() {
       setGeneratedPortrait(data.portraitImageUrl);
       setPortraitId(data.id);
       setStep("result");
+      // Clear breadcrumb on success
+      localStorage.removeItem('petai_portrait_breadcrumb');
       await refreshUser();
       queryClient.invalidateQueries({ queryKey: [`/api/users/${user.dbId}/portraits`] });
       toast({ title: "Artistic Masterpiece Ready!", description: "Check out your new pet portrait.", className: "bg-purple-600 text-white" });
     } catch (error) {
+      // Clear breadcrumb on failure
+      localStorage.removeItem('petai_portrait_breadcrumb');
       toast({ title: "Generation failed", description: "Something went wrong.", variant: "destructive" });
     } finally {
       setIsGenerating(false);
@@ -233,15 +267,15 @@ export default function PetPortraits() {
   const handleDownloadWithWatermark = async () => {
     if (!generatedPortrait) return;
     
-    if ((user?.appTokenBalance ?? 0) < 3) {
-      toast({ variant: "destructive", title: "Insufficient Tokens", description: "3 Tokens required to download the preview. Please top up." });
+    if ((user?.appTokenBalance ?? 0) < 5) {
+      toast({ variant: "destructive", title: "Insufficient Tokens", description: "5 Tokens required to download the preview. Please top up." });
       return;
     }
 
     try {
       await apiRequest("POST", "/api/tokens/deduct", {
         userId: user?.dbId,
-        amount: 3,
+        amount: 5,
         reason: "Portrait Preview Download"
       });
       await refreshUser();
@@ -451,19 +485,19 @@ export default function PetPortraits() {
                       size="lg"
                       disabled={!selectedStyle || isGenerating}
                       onClick={handleGenerate}
-                      className="w-full max-w-xs sm:max-w-sm sm:w-auto h-14 sm:h-20 px-4 sm:px-8 lg:px-16 group relative overflow-hidden rounded-[2.5rem] bg-[#0F172A] text-white shadow-[0_32px_64px_-12px_rgba(15,23,42,0.4)] hover:shadow-[0_48px_80px_-12px_rgba(15,23,42,0.5)] transition-all active:scale-95"
+                      className="w-full max-w-[280px] sm:max-w-sm sm:w-auto h-auto min-h-[3.5rem] sm:min-h-[5rem] py-3 sm:py-0 px-4 sm:px-8 lg:px-12 group relative overflow-hidden rounded-[2.5rem] bg-[#0F172A] text-white shadow-[0_32px_64px_-12px_rgba(15,23,42,0.4)] hover:shadow-[0_48px_80px_-12px_rgba(15,23,42,0.5)] transition-all active:scale-95 whitespace-normal break-words"
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-500 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                      <div className="relative z-10 flex items-center justify-center gap-2 sm:gap-4 text-xs sm:text-lg lg:text-xl font-black">
+                      <div className="relative z-10 flex items-center justify-center gap-2 sm:gap-3 text-[10px] sm:text-base lg:text-lg font-black w-full text-center leading-tight">
                         {isGenerating ? (
                           <>
-                            <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
+                            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin shrink-0" />
                             <span>ARTIST IS WORKING...</span>
                           </>
                         ) : (
                           <>
-                            <Wand2 className="w-5 h-5 sm:w-6 sm:h-6 group-hover:rotate-12 transition-transform" />
-                            <span>🪙 3 Tokens - CREATE MASTERPIECE</span>
+                            <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 transition-transform shrink-0" />
+                            <span className="truncate whitespace-normal">🪙 20 Tokens - CREATE MASTERPIECE</span>
                           </>
                         )}
                       </div>
@@ -544,7 +578,7 @@ export default function PetPortraits() {
                           <div className="p-6 bg-white/5 rounded-3xl border border-white/10 flex items-center justify-between">
                             <div>
                               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Total Price</span>
-                              <span className="text-4xl font-black">$9.00</span>
+                              <span className="text-4xl font-black">$9.95</span>
                             </div>
                             <Button onClick={() => handleCheckoutSubmit("download")} className="bg-purple-600 hover:bg-purple-500 text-white rounded-2xl px-6 font-black h-12 shadow-lg shadow-purple-600/30">
                               BUY NOW
@@ -605,7 +639,7 @@ export default function PetPortraits() {
                           className="text-slate-400 hover:text-white hover:bg-white/10 w-full sm:w-auto h-12 text-xs whitespace-normal text-center flex items-center justify-center gap-1 leading-tight sm:whitespace-nowrap" 
                           onClick={handleDownloadWithWatermark}
                         >
-                          🪙 3 Tokens - DOWNLOAD PREVIEW
+                          🪙 5 Tokens - DOWNLOAD PREVIEW
                         </Button>
                       </div>
                     )}

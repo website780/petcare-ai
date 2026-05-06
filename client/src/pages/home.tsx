@@ -120,6 +120,30 @@ export default function Home() {
     };
   }, [user?.freeScanUsed, refreshUser, toast]);
 
+  // Restore pet profile breadcrumb on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("petai_profile_breadcrumb");
+    if (saved) {
+      try {
+        const { image, timestamp } = JSON.parse(saved);
+        // 30 minute expiration
+        if (Date.now() - timestamp < 30 * 60 * 1000) {
+          setImagePreview(image);
+          setShowUploader(true);
+          toast({
+            title: "Session Recovered",
+            description: "Restoring your pet profile analysis...",
+          });
+          performAnalysis(image);
+        }
+      } catch (e) {
+        console.error("Error restoring breadcrumb:", e);
+      } finally {
+        localStorage.removeItem("petai_profile_breadcrumb");
+      }
+    }
+  }, [toast]);
+
 const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
     queryKey: ["/api/pets", user?.dbId],
     queryFn: async () => {
@@ -172,6 +196,7 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
     },
     onSuccess: (pet) => {
       // Update to use dbId in the query invalidation
+      localStorage.removeItem("petai_profile_breadcrumb");
       queryClient.invalidateQueries({ queryKey: ["/api/pets", user?.dbId] });
       queryClient.invalidateQueries({ queryKey: ["/api/pets"] });
       setLocation(`/pet/${pet.id}`);
@@ -181,6 +206,7 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
       });
     },
     onError: (error) => {
+      localStorage.removeItem("petai_profile_breadcrumb");
       toast({
         variant: "destructive",
         title: "Error",
@@ -189,37 +215,22 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
     }
   });
 
-  const onDrop = async (acceptedFiles: File[]) => {
+  const performAnalysis = async (fileDataUrl: string, originalFile?: File) => {
     try {
-      if ((user?.appTokenBalance || 0) < 2) {
+      if ((user?.appTokenBalance || 0) < 5) {
         toast({
           variant: "destructive",
           title: "Insufficient Tokens",
-          description: "This analysis requires 2 Tokens. Let's top up!",
-        });
-        // We can optionally redirect them or just let the toast inform them
-        return;
-      }
-
-      const file = acceptedFiles[0];
-      if (!file) return;
-
-      if (file.size > MAX_INITIAL_IMAGE_SIZE) {
-        toast({
-          variant: "destructive",
-          title: "Image too large",
-          description: "Please select an image under 15MB"
+          description: "This analysis requires 5 Tokens. Let's top up!",
         });
         return;
       }
 
-      // Convert file to Data URL reliably via Promise
-      const fileDataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(file);
-      });
+      // Save breadcrumb in case of refresh during analysis
+      localStorage.setItem("petai_profile_breadcrumb", JSON.stringify({
+        image: fileDataUrl,
+        timestamp: Date.now()
+      }));
 
       // Immediately set UI preview
       setImagePreview(fileDataUrl);
@@ -238,15 +249,16 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
             description: `You already have a ${analysis.species}${analysis.breed ? ` (${analysis.breed})` : ''} named ${duplicatePet.name} in your profile.`,
           });
           setImagePreview(null);
+          localStorage.removeItem("petai_profile_breadcrumb");
           return;
         }
       }
 
       // Ensure we use the loaded file string, or compress if it's too large
       let imageToUpload = fileDataUrl;
-      if (file.size > 5 * 1024 * 1024) { // Only compress if over 5MB
+      if (originalFile && originalFile.size > 5 * 1024 * 1024) { // Only compress if over 5MB
         try {
-          imageToUpload = await compressImage(file);
+          imageToUpload = await compressImage(originalFile);
         } catch (error) {
           console.error('Error compressing image:', error);
         }
@@ -306,7 +318,32 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
         description: error instanceof Error ? error.message : "Failed to analyze image",
       });
       setImagePreview(null);
+      localStorage.removeItem("petai_profile_breadcrumb");
     }
+  };
+
+  const onDrop = async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+
+    if (file.size > MAX_INITIAL_IMAGE_SIZE) {
+      toast({
+        variant: "destructive",
+        title: "Image too large",
+        description: "Please select an image under 15MB"
+      });
+      return;
+    }
+
+    // Convert file to Data URL reliably via Promise
+    const fileDataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+
+    await performAnalysis(fileDataUrl, file);
   };
 
   const handleCheckout = async () => {
@@ -419,6 +456,7 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
                 Sign in with Google
               </Button>
 
+              {/* 
               <Button
                 size="lg"
                 onClick={signInWithFacebook}
@@ -428,6 +466,7 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
                 <SiFacebook className="mr-3 h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
                 Sign in with Facebook
               </Button>
+              */}
             </div>
           </div>
 
@@ -838,7 +877,7 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
                       </p>
 
                       <p className="text-sm md:text-base text-muted-foreground max-w-sm leading-relaxed">
-                        PetCare AI will instantly analyze the image and generate a complete care profile — breed, diet, grooming, training & more.
+                        PetCare AI will instantly analyze the image and generate a complete care profile.
                       </p>
 
                       <div className="flex items-center gap-2 mt-1">

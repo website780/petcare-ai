@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SuccessPage() {
-  const { refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [verifying, setVerifying] = useState(false);
   const [complete, setComplete] = useState(false);
   const [purchaseType, setPurchaseType] = useState<string | null>(null);
@@ -110,9 +110,15 @@ export default function SuccessPage() {
           )}
         </div>
         
-        <h1 className="text-4xl font-bold mb-4 tracking-tight">
-          {verifying ? "Verifying Transaction..." : (purchaseType === "credit_topup" ? "Tokens Added!" : "Feature Unlocked!")}
+        <h1 className="text-4xl font-black mb-4 tracking-tight uppercase">
+          {verifying ? "Verifying Transaction..." : (purchaseType === "credit_topup" ? "Tokens Added!" : "Access Unlocked!")}
         </h1>
+
+        {!verifying && user && (
+          <p className="text-emerald-600 font-bold mb-2">
+            Welcome back, {user.displayName}!
+          </p>
+        )}
         
         <p className="text-lg text-muted-foreground mb-12 text-center max-w-md mx-auto leading-relaxed">
           {verifying 

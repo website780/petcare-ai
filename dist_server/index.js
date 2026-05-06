@@ -777,6 +777,9 @@ var PostgresStorage = class {
     const [scan] = await db.select().from(standaloneScans).where(eq(standaloneScans.id, id));
     return scan;
   }
+  async getStandaloneScans(userId) {
+    return db.select().from(standaloneScans).where(eq(standaloneScans.userId, userId)).orderBy(desc(standaloneScans.createdAt));
+  }
   async updateStandaloneScan(id, updates) {
     const [updatedScan] = await db.update(standaloneScans).set(updates).where(eq(standaloneScans.id, id)).returning();
     return updatedScan;
@@ -1316,6 +1319,8 @@ function registerRoutes(app2) {
           photoURL,
           firebaseId
         });
+        user = await storage.adjustUserTokens(user.id, 40, "welcome", "Welcome Bonus - 40 Free Tokens");
+        console.log(`[WELCOME] Granted 40 free tokens to new user ${user.id}`);
       } else {
         user = await storage.updateUser(user.id, {
           email,
@@ -1546,10 +1551,9 @@ function registerRoutes(app2) {
         targetUser = await storage.getUser(Number(userId));
       }
       if (targetUser) {
-        if ((targetUser.appTokenBalance || 0) < 2) {
-          return res.status(402).json({ error: "Insufficient tokens. 2 Tokens required." });
+        if ((targetUser.appTokenBalance || 0) < 5) {
+          return res.status(402).json({ error: "Insufficient tokens. 5 Tokens required for pet profile analysis." });
         }
-        await storage.adjustUserTokens(targetUser.id, -2, "usage", "Pet Profile Analysis");
       }
       console.log("Starting image analysis with OpenAI Vision API");
       const response = await openai2.chat.completions.create({
@@ -1583,8 +1587,11 @@ function registerRoutes(app2) {
         throw new Error("No content in OpenAI response");
       }
       const analysis = JSON.parse(content);
+      if (targetUser) {
+        console.log(`[SCAN-SUCCESS] Deducting 5 tokens for user ${targetUser.id} after successful analysis`);
+        await storage.adjustUserTokens(targetUser.id, -5, "usage", "Pet Profile Analysis");
+      }
       if (targetUser && Number(targetUser.freeScanUsed || 0) < 2) {
-        console.log(`[SCAN-SUCCESS] Consuming credit for user ${targetUser.id}`);
         await storage.updateUserCredits(targetUser.id, "freeScanUsed", Number(targetUser.freeScanUsed || 0) + 1);
       }
       res.json(analysis);
@@ -1616,17 +1623,25 @@ function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to fetch scan" });
     }
   });
+  app2.get("/api/standalone/scans/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const scans = await storage.getStandaloneScans(Number(userId));
+      res.json(scans);
+    } catch (error) {
+      console.error("Error fetching standalone scans:", error);
+      res.status(500).json({ error: "Failed to fetch scan history" });
+    }
+  });
   app2.post("/api/standalone/scan", async (req, res) => {
     try {
       const { userId, petInfo, injuryPhotoUrl, analysisResults } = req.body;
       const user = await storage.getUser(Number(userId));
       if (!user) return res.status(404).json({ error: "User not found" });
       let isPaid = 1;
-      if ((user.appTokenBalance || 0) < 3) {
-        return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
+      if ((user.appTokenBalance || 0) < 10) {
+        return res.status(402).json({ error: "Insufficient tokens. 10 Tokens required for injury scan." });
       }
-      console.log(`[SCAN-INJURY] Consuming 3 Tokens for user ${user.id}`);
-      await storage.adjustUserTokens(user.id, -3, "usage", "AI Injury Scan");
       const scan = await storage.createStandaloneScan({
         userId,
         petInfo,
@@ -1634,10 +1649,11 @@ function registerRoutes(app2) {
         analysisResults,
         isPaid
       });
+      console.log(`[SCAN-INJURY] Deducting 10 Tokens for user ${user.id} after successful scan save`);
+      await storage.adjustUserTokens(user.id, -10, "usage", "AI Injury Scan");
       res.json({
         scanId: scan.id,
         isPaid: Boolean(isPaid || scan.isPaid)
-        // Be very explicit
       });
     } catch (error) {
       console.error("Error saving scan:", error);
@@ -1661,19 +1677,16 @@ function registerRoutes(app2) {
         } else if (type === "credit_topup") {
           if (metadata?.package === "tier_1") {
             amount = 999;
-            description = "Pet AI Companion - Starter Pack (50 Tokens)";
+            description = "Pet AI Companion - Starter Pack (150 Tokens)";
           } else if (metadata?.package === "tier_2" || metadata?.package === "100_credits") {
             amount = 1999;
-            description = "Pet AI Companion - Pro Pack (100 Tokens)";
-          } else if (metadata?.package === "tier_3") {
-            amount = 4999;
-            description = "Pet AI Companion - Value Pack (400 Tokens)";
+            description = "Pet AI Companion - Pro Pack (350 Tokens)";
           } else if (metadata?.package === "20_credits") {
             amount = 500;
             description = "Pet AI Companion - 20 Universal Credits";
           } else {
             amount = 1999;
-            description = "Pet AI Companion - Pro Pack (100 Tokens)";
+            description = "Pet AI Companion - Pro Pack (350 Tokens)";
           }
         } else if (type.startsWith("portrait")) {
           amount = 900;
@@ -1781,17 +1794,14 @@ function registerRoutes(app2) {
         if (typePart === "credit_topup") {
           const packageType = session.metadata?.package;
           const amount = session.amount_total || 0;
-          let tokensToAdd = 100;
+          let tokensToAdd = 150;
           let planName = "Token Top-up";
           if (packageType === "tier_1" || amount === 999) {
-            tokensToAdd = 50;
-            planName = "Starter Pack (50 Tokens)";
+            tokensToAdd = 150;
+            planName = "Starter Pack (150 Tokens)";
           } else if (packageType === "tier_2" || amount === 1999) {
-            tokensToAdd = 100;
-            planName = "Pro Pack (100 Tokens)";
-          } else if (packageType === "tier_3" || amount === 4999) {
-            tokensToAdd = 400;
-            planName = "Value Pack (400 Tokens)";
+            tokensToAdd = 350;
+            planName = "Pro Pack (350 Tokens)";
           } else if (packageType === "20_credits") {
             tokensToAdd = 20;
             planName = "Legacy 20 Pack";
@@ -2149,11 +2159,9 @@ Pet Owner: ${message}`
       }
       const user = await storage.getUser(Number(userId));
       if (!user) return res.status(404).json({ error: "User not found" });
-      if ((user.appTokenBalance || 0) < 3) {
-        return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
+      if ((user.appTokenBalance || 0) < 5) {
+        return res.status(402).json({ error: "Insufficient tokens. 5 Tokens required per message." });
       }
-      console.log(`[CHAT] Consuming 3 Tokens for user ${user.id}`);
-      await storage.adjustUserTokens(user.id, -3, "usage", "AI Vet Consultation");
       if (!message) {
         return res.status(400).json({ error: "No message provided" });
       }
@@ -2237,7 +2245,8 @@ Pet Owner: ${message}`
       if (!responseContent) {
         throw new Error("No response generated");
       }
-      console.log(`[VET-CHAT-SUCCESS] Decrementing credit for user ${user.id}. Previous: ${user.vetChatCredits}`);
+      console.log(`[VET-CHAT-SUCCESS] Deducting 5 tokens for user ${user.id} after successful response`);
+      await storage.adjustUserTokens(user.id, -5, "usage", "AI Vet Consultation");
       await storage.updateUserCredits(user.id, "vetChatCredits", Math.max(0, (user.vetChatCredits || 0) - 1));
       res.json({ response: responseContent });
     } catch (error) {
@@ -2246,6 +2255,26 @@ Pet Owner: ${message}`
         error: "Failed to generate chat response",
         details: error instanceof Error ? error.message : String(error)
       });
+    }
+  });
+  app2.get("/api/standalone/vet-chat/history/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const chats = await storage.getStandaloneVetChats(Number(userId));
+      res.json(chats);
+    } catch (error) {
+      console.error("Error fetching vet chats:", error);
+      res.status(500).json({ error: "Failed to fetch vet chat history" });
+    }
+  });
+  app2.get("/api/users/:userId/portraits", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const portraits = await storage.getPetPortraits(Number(userId));
+      res.json(portraits);
+    } catch (error) {
+      console.error("Error fetching portraits:", error);
+      res.status(500).json({ error: "Failed to fetch pet portraits" });
     }
   });
   app2.get("/api/standalone/vet-chat/latest", async (req, res) => {
@@ -3072,10 +3101,9 @@ Always respond in valid JSON format.`
       }
       const user = await storage.getUser(Number(userId));
       if (!user) return res.status(404).json({ error: "User not found" });
-      if ((user.appTokenBalance || 0) < 3) {
-        return res.status(402).json({ error: "Insufficient tokens. 3 Tokens required." });
+      if ((user.appTokenBalance || 0) < 5) {
+        return res.status(402).json({ error: "Insufficient tokens. 5 Tokens required for portrait generation." });
       }
-      await storage.adjustUserTokens(user.id, -3, "usage", "AI Portrait Generation");
       if (!process.env.OPENAI_API_KEY) {
         return res.status(500).json({ error: "OpenAI API is not configured" });
       }
@@ -3142,6 +3170,8 @@ IMPORTANT: Create a stylized artistic portrait that preserves the unique identit
         paid: "false",
         paymentType: null
       });
+      console.log(`[PORTRAIT] Deducting 5 tokens for user ${user.id} after successful generation`);
+      await storage.adjustUserTokens(user.id, -5, "usage", "AI Portrait Generation");
       res.json({
         id: portrait.id,
         portraitImageUrl: portraitBase64,

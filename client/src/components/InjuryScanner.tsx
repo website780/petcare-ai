@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Upload, Loader2, AlertTriangle, CheckCircle2, ChevronRight, User, HeartPulse, MessageSquare, PawPrint, Plus, Lock, Send, Sparkles, ArrowLeft } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Upload, Loader2, AlertTriangle, CheckCircle2, ChevronRight, User, HeartPulse, MessageSquare, PawPrint, Plus, Lock, Send, Sparkles, ArrowLeft, History } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocation } from "wouter";
@@ -76,6 +78,7 @@ export function InjuryScanner() {
   const [step, setStep] = useState<Step>("pet_select");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isCreatingPet, setIsCreatingPet] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Selected existing pet
   const [selectedPetId, setSelectedPetId] = useState<number | null>(null);
@@ -131,6 +134,12 @@ export function InjuryScanner() {
     enabled: !!user?.dbId,
   });
 
+  // Fetch scan history
+  const { data: scanHistory = [], isLoading: isLoadingHistory } = useQuery<any[]>({
+    queryKey: [`/api/standalone/scans/${user?.dbId}`],
+    enabled: !!user?.dbId,
+  });
+
   // Add this near your other useQuery/useMutation hooks
   const updatePetDetailsMutation = useMutation({
     mutationFn: async (data: Partial<Pet>) => {
@@ -180,9 +189,31 @@ export function InjuryScanner() {
       toast({ variant: "destructive", title: "Failed to create pet", description: err.message });
     },
   });
-  // Add URL parameter check for direct report loading
+  // Add URL parameter check for direct report loading + breadcrumb recovery
   useEffect(() => {
-    // Wouter sometimes eats searchParams on initial mount, so check full href just in case
+    // 1. Check for localStorage breadcrumb (session recovery)
+    try {
+      const breadcrumb = localStorage.getItem('petai_injury_breadcrumb');
+      if (breadcrumb) {
+        const saved = JSON.parse(breadcrumb);
+        // Only recover if breadcrumb is less than 30 minutes old
+        if (saved.timestamp && (Date.now() - saved.timestamp) < 30 * 60 * 1000) {
+          setPetInfo(saved.petInfo || { species: "", breed: "", weight: "", age: "", gender: "" });
+          if (saved.injuryImage) setInjuryImage(saved.injuryImage);
+          if (saved.injuryDetails) setInjuryDetails(saved.injuryDetails);
+          if (saved.selectedPetId) setSelectedPetId(saved.selectedPetId);
+          // Restore to injury_details step so user can re-submit (no tokens were lost)
+          setStep("injury_details");
+          toast({ title: "Session Recovered", description: "Your previous scan was interrupted. No tokens were charged. You can re-submit." });
+          localStorage.removeItem('petai_injury_breadcrumb');
+          return; // Don't process URL params if we recovered from breadcrumb
+        } else {
+          localStorage.removeItem('petai_injury_breadcrumb'); // Expired
+        }
+      }
+    } catch (e) { /* ignore parse errors */ }
+
+    // 2. URL parameter check for direct report loading
     const urlParams = new URLSearchParams(window.location.search);
     let scanId = urlParams.get("id");
     
@@ -205,7 +236,7 @@ export function InjuryScanner() {
             setAnalysis(scanData.analysisResults);
             setIsPaid(true); 
             setCurrentScanId(Number(scanId));
-            setStep("analysis"); // Force step
+            setStep("analysis");
             toast({ title: "Success", description: "Report unlocked and loaded!" });
           } else {
              toast({ variant: "destructive", title: "Error", description: "Report found in URL but backend couldn't read it." });
@@ -363,6 +394,18 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
   const handleAnalyzeInjury = async () => {
     if (!injuryImage) return;
 
+    // Save breadcrumb to localStorage before long operation
+    try {
+      localStorage.setItem('petai_injury_breadcrumb', JSON.stringify({
+        step: 'analyzing',
+        petInfo,
+        injuryImage,
+        injuryDetails,
+        selectedPetId,
+        timestamp: Date.now()
+      }));
+    } catch (e) { /* localStorage might be full, continue anyway */ }
+
     setIsAnalyzing(true);
     try {
       const base64Image = injuryImage.split(",")[1];
@@ -410,8 +453,12 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
         await refreshUser();
       }
 
+      // Clear breadcrumb on success
+      localStorage.removeItem('petai_injury_breadcrumb');
       setStep("analysis");
     } catch {
+      // Clear breadcrumb on failure too (tokens weren't deducted)
+      localStorage.removeItem('petai_injury_breadcrumb');
       toast({ variant: "destructive", title: "Analysis Failed", description: "Failed to analyze injury. Please try again." });
     } finally {
       setIsAnalyzing(false);
@@ -420,6 +467,16 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || !user?.dbId || !analysis) return;
+
+    if ((user?.appTokenBalance || 0) < 10) {
+      toast({ 
+        variant: "destructive", 
+        title: "Insufficient Tokens", 
+        description: "10 Tokens required per message. Please top up your wallet." 
+      });
+      setLocation("/pricing");
+      return;
+    }
 
     const userMsg = { role: "user", content: inputMessage.trim() };
     const updatedHistory = [...chatHistory, userMsg];
@@ -498,15 +555,67 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
   const progressStep = step === "create_pet" ? "pet_select" : step;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-20">
-      <Button 
-        variant="ghost" 
-        onClick={() => setLocation("/")}
-        className="hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a] transition-all group rounded-2xl"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
-        Back to Dashboard
-      </Button>
+    <div className="max-w-4xl mx-auto space-y-8 pb-20 px-4 sm:px-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <Button 
+          variant="ghost" 
+          onClick={() => setLocation("/")}
+          className="hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a] transition-all group rounded-2xl"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
+          Back to Dashboard
+        </Button>
+        <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="gap-2 border-[#ff6b4a]/20 text-[#ff6b4a] hover:bg-[#ff6b4a]/5">
+              <History className="w-4 h-4" />
+              Scan History
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Past Injury Scans</DialogTitle>
+              <DialogDescription>Review your previous pet medical scans and reports.</DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="flex-1 pr-4">
+              {isLoadingHistory ? (
+                <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+              ) : scanHistory.length === 0 ? (
+                <div className="text-center p-8 text-muted-foreground">No past scans found.</div>
+              ) : (
+                <div className="space-y-4">
+                  {scanHistory.map((scan: any) => (
+                    <Card key={scan.id} className="overflow-hidden hover:border-[#ff6b4a]/40 transition-colors cursor-pointer" onClick={() => {
+                      setPetInfo(scan.petInfo || { species: "", breed: "", weight: "", age: "", gender: "" });
+                      if (scan.injuryPhotoUrl) setInjuryImage(`data:image/jpeg;base64,${scan.injuryPhotoUrl}`);
+                      setAnalysis(scan.analysisResults);
+                      setIsPaid(scan.isPaid === 1 || scan.isPaid === true);
+                      setCurrentScanId(scan.id);
+                      setIsHistoryOpen(false);
+                      setStep("analysis");
+                    }}>
+                      <div className="flex items-center gap-4 p-4">
+                        {scan.injuryPhotoUrl ? (
+                          <img src={`data:image/jpeg;base64,${scan.injuryPhotoUrl}`} className="w-16 h-16 rounded-md object-cover" />
+                        ) : (
+                          <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center"><HeartPulse className="w-6 h-6" /></div>
+                        )}
+                        <div className="flex-1">
+                          <h4 className="font-semibold">{scan.petInfo?.species || "Pet"} Scan</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(scan.createdAt).toLocaleDateString()} • {scan.analysisResults?.severity || "Unknown"} Severity
+                          </p>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {/* Progress Indicators */}
       <div className="flex justify-between mb-8 opacity-60">
@@ -552,11 +661,11 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
 
           <CardContent>
             {/* ── Paywall ── */}
-            {(user?.appTokenBalance || 0) < 3 ? (
+            {(user?.appTokenBalance || 0) < 20 ? (
               <div className="flex flex-col items-center gap-6 py-8">
                 <div className="bg-primary/5 rounded-2xl p-8 w-full text-center space-y-4">
-                  <div className="text-3xl font-black">🪙 3 Tokens</div>
-                  <p className="text-sm font-medium">This analysis requires 3 Universal Tokens. You currently have {user?.appTokenBalance || 0}.</p>
+                  <div className="text-3xl font-black">🪙 20 Tokens</div>
+                  <p className="text-sm font-medium">This analysis requires 20 Universal Tokens. You currently have {user?.appTokenBalance || 0}.</p>
                   <Button
                     size="lg"
                     className="w-full bg-[#ff6b4a] hover:bg-[#e05a3b] py-6 font-bold"

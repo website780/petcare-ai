@@ -13,7 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function Header() {
-  const { user, logout } = useAuth();
+  const { user, logout, signInWithGoogle } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -26,7 +26,27 @@ export function Header() {
     }
   };
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="w-full relative z-50 bg-white/90 backdrop-blur-md border-b border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-200 left-0 top-0 sticky">
+        <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center justify-between">
+            <Link href="/">
+              <div className="flex items-center cursor-pointer">
+                <img src="/assets/Brand-Guidelines-for-Pet-Care-AI-3-1.png" alt="Pet Care AI Logo" className="h-10 md:h-12 w-auto object-contain" />
+              </div>
+            </Link>
+            <Button 
+              onClick={signInWithGoogle}
+              className="bg-[#ff6b4a] hover:bg-[#e05a3b] text-white rounded-full px-6 font-bold shadow-md"
+            >
+              Sign In
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full relative z-50 bg-white/90 backdrop-blur-md border-b border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-200 left-0 top-0 sticky">

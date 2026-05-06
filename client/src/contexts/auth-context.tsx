@@ -11,6 +11,7 @@ interface ExtendedUser extends User {
   freeInjuryScanUsed?: number;
   vetChatCredits?: number;
   appTokenBalance?: number;
+  lastPackage?: string | null;
 }
 
 interface AuthContextType {
@@ -60,7 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             freeScanUsed: Number(dbUser.freeScanUsed ?? 0),
             freeInjuryScanUsed: Number(dbUser.freeInjuryScanUsed ?? 0),
             vetChatCredits: Number(dbUser.vetChatCredits ?? 2),
-            appTokenBalance: Number(dbUser.appTokenBalance ?? 0)
+            appTokenBalance: Number(dbUser.appTokenBalance ?? 0),
+            lastPackage: dbUser.lastPackage || null
           };
 
           setUser(extendedUser);
@@ -177,7 +179,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               freeScanUsed: Number(dbUser.freeScanUsed ?? 0),
               freeInjuryScanUsed: Number(dbUser.freeInjuryScanUsed ?? 0),
               vetChatCredits: Number(dbUser.vetChatCredits ?? 2),
-              appTokenBalance: Number(dbUser.appTokenBalance ?? 0)
+              appTokenBalance: Number(dbUser.appTokenBalance ?? 0),
+              lastPackage: dbUser.lastPackage || null
             };
           } else {
             nextState = {
@@ -189,7 +192,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               freeScanUsed: dbUser.freeScanUsed !== undefined && dbUser.freeScanUsed !== null ? Number(dbUser.freeScanUsed) : prev.freeScanUsed,
               freeInjuryScanUsed: dbUser.freeInjuryScanUsed !== undefined && dbUser.freeInjuryScanUsed !== null ? Number(dbUser.freeInjuryScanUsed) : prev.freeInjuryScanUsed,
               vetChatCredits: dbUser.vetChatCredits !== undefined && dbUser.vetChatCredits !== null ? Number(dbUser.vetChatCredits) : prev.vetChatCredits,
-              appTokenBalance: dbUser.appTokenBalance !== undefined && dbUser.appTokenBalance !== null ? Number(dbUser.appTokenBalance) : prev.appTokenBalance
+              appTokenBalance: dbUser.appTokenBalance !== undefined && dbUser.appTokenBalance !== null ? Number(dbUser.appTokenBalance) : prev.appTokenBalance,
+              lastPackage: dbUser.lastPackage !== undefined ? dbUser.lastPackage : prev.lastPackage
             };
           }
           localStorage.setItem("cached_user", JSON.stringify(nextState));
