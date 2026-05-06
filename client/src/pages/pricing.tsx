@@ -166,10 +166,10 @@ export default function Pricing() {
 
                   <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 mb-8">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">
-                      {(tier as any).isFree ? 'Your Balance' : 'Includes'}
+                      Includes
                     </p>
                     <p className="text-xl font-black text-gray-900 dark:text-white">
-                      {(tier as any).isFree ? `${user?.appTokenBalance || 0} Tokens` : `${tier.tokens} Universal Tokens`}
+                      {(tier as any).isFree ? `40 Welcome Tokens` : `${tier.tokens} Universal Tokens`}
                     </p>
                   </div>
 

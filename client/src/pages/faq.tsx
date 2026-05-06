@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Coins, Zap, ShieldCheck, HelpCircle, ChevronRight } from "lucide-react";
+import { ArrowLeft, Coins, Zap, ShieldCheck, HelpCircle, ChevronRight, Mail } from "lucide-react";
 import { Link } from "wouter";
 
 const FAQS = [
@@ -86,15 +86,15 @@ export default function FAQ() {
         <div className="mt-20 p-10 rounded-[3rem] bg-gradient-to-br from-[#ff6b4a] to-orange-600 text-white shadow-2xl relative overflow-hidden">
           <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-white/10 blur-[80px] rounded-full" />
           <div className="relative z-10 text-center space-y-6">
-            <Zap className="w-12 h-12 mx-auto mb-4" />
             <h2 className="text-3xl font-black">Still have questions?</h2>
-            <p className="text-orange-100 font-medium max-w-lg mx-auto">
-              Our support team is available 24/7 to help you with your token wallet or any technical inquiries.
-            </p>
-            <div className="pt-4">
-              <Button className="bg-white text-[#ff6b4a] hover:bg-black hover:text-white h-14 px-10 rounded-2xl font-black transition-all">
-                CONTACT SUPPORT
-              </Button>
+            <div className="pt-4 flex flex-col items-center gap-2">
+              <a 
+                href="mailto:support@pet-care.ai" 
+                className="flex items-center gap-3 bg-white/10 hover:bg-white/20 px-8 py-4 rounded-2xl transition-all border border-white/20 group"
+              >
+                <Mail className="w-6 h-6 text-white" />
+                <span className="text-xl font-black tracking-tight">support@pet-care.ai</span>
+              </a>
             </div>
           </div>
         </div>
