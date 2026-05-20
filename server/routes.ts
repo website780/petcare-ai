@@ -2296,22 +2296,28 @@ Always respond in valid JSON format.`
       const petDescription = visionResponse.choices[0]?.message?.content || "a cute pet";
 
       const imageResponse = await openai.images.generate({
-        model: "dall-e-3",
+        model: "gpt-image-2",
         prompt: `${stylePrompt}\n\nThe subject is: ${petDescription}\n\nIMPORTANT: Create a stylized artistic portrait that preserves the unique identity markers mentioned. It must be a single centered composition of just this pet with a complementary background. If the style is Anime, use a high-fidelity 'Seinen' anime aesthetic that respects the pet's actual bone structure and facial proportions.`,
         n: 1,
         size: "1024x1024",
-        quality: "hd",
+        quality: "auto",
       });
 
       const generatedImageUrl = imageResponse.data?.[0]?.url;
+      const b64Json = imageResponse.data?.[0]?.b64_json;
 
-      if (!generatedImageUrl) {
+      if (!generatedImageUrl && !b64Json) {
         throw new Error("Failed to generate portrait image");
       }
 
-      const imageRes = await fetch(generatedImageUrl);
-      const imageBuffer = Buffer.from(await imageRes.arrayBuffer());
-      const portraitBase64 = `data:image/png;base64,${imageBuffer.toString("base64")}`;
+      let portraitBase64: string;
+      if (b64Json) {
+        portraitBase64 = `data:image/png;base64,${b64Json}`;
+      } else {
+        const imageRes = await fetch(generatedImageUrl!);
+        const imageBuffer = Buffer.from(await imageRes.arrayBuffer());
+        portraitBase64 = `data:image/png;base64,${imageBuffer.toString("base64")}`;
+      }
 
       const portrait = await storage.createPetPortrait({
         userId,
