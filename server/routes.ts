@@ -2296,7 +2296,7 @@ Always respond in valid JSON format.`
       const petDescription = visionResponse.choices[0]?.message?.content || "a cute pet";
 
       const imageResponse = await openai.images.generate({
-        model: "gpt-image-2",
+        model: "gpt-image-1-mini",
         prompt: `${stylePrompt}\n\nThe subject is: ${petDescription}\n\nIMPORTANT: Create a stylized artistic portrait that preserves the unique identity markers mentioned. It must be a single centered composition of just this pet with a complementary background. If the style is Anime, use a high-fidelity 'Seinen' anime aesthetic that respects the pet's actual bone structure and facial proportions.`,
         n: 1,
         size: "1024x1024",
