@@ -172,6 +172,7 @@ export default function PetPortraits() {
       setGeneratedPortrait(data.portraitImageUrl);
       setPortraitId(data.id);
       setStep("result");
+      window.scrollTo({ top: 0, behavior: "smooth" });
       // Clear breadcrumb on success
       localStorage.removeItem('petai_portrait_breadcrumb');
       await refreshUser();

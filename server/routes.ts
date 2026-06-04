@@ -412,8 +412,9 @@ export function registerRoutes(app: Express): Server {
             content: [
               {
                 type: "text",
-                text: "Analyze this pet image. Provide the following information in JSON format (Exclude description and careRecommendations):\n" +
+                text: "Analyze this pet image. If there is no animal in the image, set isPet to false and return immediately. Otherwise, provide the following information in JSON format (Exclude description and careRecommendations):\n" +
                       "{\n" +
+                      "  isPet: boolean,\n" +
                       "  species: string,\n" +
                       "  breed: string | null,\n" +
                       "  gender: string | null,\n" +
@@ -464,6 +465,9 @@ export function registerRoutes(app: Express): Server {
       }
 
       const analysis = JSON.parse(content);
+      if (analysis.isPet === false) {
+        throw new Error("No pet detected in the image. Please upload a clear photo of your pet.");
+      }
 
       // Deduct tokens AFTER successful AI response (Deduct-After-Delivery pattern)
       if (targetUser) {
@@ -998,8 +1002,9 @@ export function registerRoutes(app: Express): Server {
             content: [
               {
                 type: "text",
-                text: `${petContext}Analyze this image for any visible injuries or health issues. ${speciesGuidance}\n\n${detailsContext}\n\nProvide detailed analysis in this JSON format:\n` +
+                text: `${petContext}Analyze this image for any visible injuries or health issues. If there is no animal in the image, set isPet to false and return immediately. ${speciesGuidance}\n\n${detailsContext}\n\nProvide detailed analysis in this JSON format:\n` +
                       "{\n" +
+                      "  isPet: boolean,\n" +
                       "  hasInjury: boolean,\n" +
                       "  injuryDescription: string or null,\n" +
                       "  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'NONE',\n" +
@@ -1039,6 +1044,9 @@ export function registerRoutes(app: Express): Server {
 
       try {
         const parsedContent = JSON.parse(content);
+        if (parsedContent.isPet === false) {
+          throw new Error("No pet detected in the image. Please upload a clear photo of your pet's injury.");
+        }
         // Using .safeParse for more resilient handling if needed, but .parse is okay with relaxed schema
         const analysis = injuryAnalysisResponseSchema.parse(parsedContent);
         res.json(analysis);
@@ -2279,7 +2287,7 @@ Always respond in valid JSON format.`
             content: [
               {
                 type: "text",
-                text: "Perform a forensic physical analysis of this pet for a world-class portrait artist. Describe its species, breed, and most importantly, identifying landmarks: the unique pattern of its fur/spots, exact shape of the face and snout, distinct ear positioning, eye color, and any asymmetrical markings. Your description will be used to recreate this exact individual pet in an artistic style. Be extremely specific about identity markers. 2-3 detailed sentences."
+                text: "Perform a forensic physical analysis of this animal for a world-class portrait artist. If the image does not contain an animal, reply exactly with 'ERROR_NO_ANIMAL'. Describe its species, breed, and most importantly, identifying landmarks: the unique pattern of its fur/feathers/spots, exact shape of the face and snout/beak, distinct ear/head positioning, eye color, and any asymmetrical markings. Your description will be used to recreate this exact individual animal in an artistic style. Be extremely specific about identity markers. 2-3 detailed sentences."
               },
               {
                 type: "image_url",
@@ -2294,10 +2302,14 @@ Always respond in valid JSON format.`
       });
 
       const petDescription = visionResponse.choices[0]?.message?.content || "a cute pet";
+      
+      if (petDescription.trim() === "ERROR_NO_ANIMAL") {
+        throw new Error("No animal detected in the image. Please upload a clear photo of your animal.");
+      }
 
       const imageResponse = await openai.images.generate({
         model: "gpt-image-1-mini",
-        prompt: `${stylePrompt}\n\nThe subject is: ${petDescription}\n\nIMPORTANT: Create a stylized artistic portrait that preserves the unique identity markers mentioned. It must be a single centered composition of just this pet with a complementary background. If the style is Anime, use a high-fidelity 'Seinen' anime aesthetic that respects the pet's actual bone structure and facial proportions.`,
+        prompt: `${stylePrompt}\n\nThe subject is: ${petDescription}\n\nIMPORTANT: Create a stylized artistic portrait that preserves the unique identity markers mentioned. It must be a single centered composition of just this animal with a complementary background. If the style is Anime, use a high-fidelity 'Seinen' anime aesthetic that respects the animal's actual bone structure and facial proportions.`,
         n: 1,
         size: "1024x1024",
         quality: "auto",

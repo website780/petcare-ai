@@ -52,7 +52,7 @@ function PrivateRoute({ component: Component, ...rest }: { component: React.Comp
 function Router() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center h-screen w-full bg-[#f8faFC] dark:bg-black">
+      <div className="flex items-center justify-center h-screen w-full bg-[#f8faFC]">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     }>
@@ -114,23 +114,22 @@ function Router() {
             return <PrivateRoute component={Component} />;
           }}
         />
-        <Route
-          path="/pet/:id/vaccinations"
-          component={() => {
-            const Component = () => <VaccinationRecords />;
-            return <PrivateRoute component={Component} />;
-          }}
-        />
-        <Route 
-          path="/profile" 
-          component={() => (
-            <PrivateRoute component={UserProfile} />
-          )} 
-        />
+        <Route path="/pet/:id/vaccinations">
+          <PrivateRoute component={VaccinationRecords} />
+        </Route>
+        <Route path="/profile">
+          <PrivateRoute component={UserProfile} />
+        </Route>
         <Route path="/photo-tutorial" component={PhotoTutorialPage} />
-        <Route path="/pet-portraits" component={() => <PrivateRoute component={PetPortraits} />} />
-        <Route path="/pricing" component={() => <PrivateRoute component={PricingPage} />} />
-        <Route path="/usage" component={() => <PrivateRoute component={UsageHistoryPage} />} />
+        <Route path="/pet-portraits">
+          <PrivateRoute component={PetPortraits} />
+        </Route>
+        <Route path="/pricing">
+          <PrivateRoute component={PricingPage} />
+        </Route>
+        <Route path="/usage">
+          <PrivateRoute component={UsageHistoryPage} />
+        </Route>
         <Route path="/faq" component={FAQPage} />
         {/* <Route path="/admin" component={AdminPage} /> */}
         
@@ -144,7 +143,7 @@ function AppLayout() {
   const { user } = useAuth();
   
   return (
-    <div className="flex flex-col min-h-screen relative overflow-hidden bg-[#f8faFC] dark:bg-black transition-colors duration-500">
+    <div className="flex flex-col min-h-screen relative overflow-hidden bg-[#f8faFC] transition-colors duration-500">
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
       </div>
       <main className="flex-1 relative z-10 w-full overflow-x-hidden">

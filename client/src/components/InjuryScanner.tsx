@@ -927,6 +927,11 @@ const handleNewPetPhotoUpload = async (acceptedFiles: File[]) => {
             <CardDescription>Providing these details helps our AI give more accurate recommendations for {petInfo.species}.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {injuryImage && (
+              <div className="flex justify-center mb-4">
+                <img src={injuryImage} alt="Captured injury" className="h-32 object-contain rounded-xl border border-black/5 shadow-sm" />
+              </div>
+            )}
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Location on {petInfo.species}'s body</Label>
