@@ -456,7 +456,7 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
                 Sign in with Google
               </Button>
 
-              {/* 
+              
               <Button
                 size="lg"
                 onClick={signInWithFacebook}
@@ -466,7 +466,7 @@ const { data: pets, isLoading: isLoadingPets } = useQuery<Pet[]>({
                 <SiFacebook className="mr-3 h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
                 Sign in with Facebook
               </Button>
-              */}
+              
             </div>
           </div>
 
