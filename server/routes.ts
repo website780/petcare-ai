@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { analyzeImageResponseSchema, insertReminderSchema, insertVetConsultationSchema, insertInsurancePolicySchema, insertInsuranceClaimSchema, insertPetExpenseSchema } from "../shared/schema.js";
 import { z } from "zod";
 import fetch from "node-fetch";
@@ -17,6 +18,7 @@ const stripe = new Stripe(cleanSecretKey);
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 // Add this near other schema definitions
 const injuryAnalysisResponseSchema = z.object({
@@ -2279,6 +2281,7 @@ Always respond in valid JSON format.`
 
       const stylePrompt = stylePrompts[style] || stylePrompts["watercolor"];
 
+      /*
       const visionResponse = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -2302,6 +2305,29 @@ Always respond in valid JSON format.`
       });
 
       const petDescription = visionResponse.choices[0]?.message?.content || "a cute pet";
+      */
+
+      // Gemini Vision API Call
+      if (!process.env.GEMINI_API_KEY) {
+        throw new Error("Gemini API key is not configured");
+      }
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const base64Parts = imageBase64.split(",");
+      const base64Data = base64Parts[1] || base64Parts[0];
+      const mimeType = imageBase64.startsWith("data:") 
+        ? imageBase64.split(";")[0].split(":")[1] 
+        : "image/jpeg";
+      
+      const result = await model.generateContent([
+        "Perform a forensic physical analysis of this animal for a world-class portrait artist. If the image does not contain an animal, reply exactly with 'ERROR_NO_ANIMAL'. Describe its species, breed, and most importantly, identifying landmarks: the unique pattern of its fur/feathers/spots, exact shape of the face and snout/beak, distinct ear/head positioning, eye color, and any asymmetrical markings. Your description will be used to recreate this exact individual animal in an artistic style. Be extremely specific about identity markers. 2-3 detailed sentences.",
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType: mimeType
+          }
+        }
+      ]);
+      const petDescription = result.response.text() || "a cute pet";
       
       if (petDescription.trim() === "ERROR_NO_ANIMAL") {
         throw new Error("No animal detected in the image. Please upload a clear photo of your animal.");

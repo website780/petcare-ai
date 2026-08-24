@@ -371,23 +371,46 @@ export default function PetPortraits() {
               className="max-w-4xl mx-auto space-y-12"
             >
               <Card 
-                className="group relative cursor-pointer overflow-hidden border-none bg-white/60 backdrop-blur-3xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] rounded-[3rem] transition-all hover:shadow-[0_48px_80px_-16px_rgba(147,51,234,0.15)]"
+                className="group relative cursor-pointer overflow-hidden border-none shadow-[0_32px_64px_-16px_rgba(0,0,0,0.15)] rounded-[3rem] p-6 md:p-16 flex items-center justify-center min-h-[450px]"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                <CardContent className="p-16 md:p-24 flex flex-col items-center">
-                  <div className="relative mb-10 group-hover:scale-110 transition-transform duration-700">
-                    <div className="absolute inset-0 bg-purple-500/20 blur-3xl scale-150 group-hover:scale-[2] transition-transform duration-700" />
-                    <div className="w-32 h-32 rounded-[2.5rem] bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center relative z-10 shadow-2xl">
-                      <Camera className="w-12 h-12 text-white" />
+                {/* Tiled Background Grid of Sample Portraits */}
+                <div className="absolute inset-0 grid grid-cols-2 md:grid-cols-4 gap-0.5 pointer-events-none transition-transform duration-700 group-hover:scale-102">
+                  {[
+                    "/assets/sample-watercolor.png",
+                    "/assets/sample-oil-painting.png",
+                    "/assets/sample-anime.png",
+                    "/assets/sample-cyberpunk.png",
+                    "/assets/sample-cyberpunk.png",
+                    "/assets/sample-anime.png",
+                    "/assets/sample-oil-painting.png",
+                    "/assets/sample-watercolor.png"
+                  ].map((src, index) => (
+                    <div key={index} className="w-full h-full relative aspect-square md:aspect-auto">
+                      <img src={src} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Dark overlay over the background image grid */}
+                <div className="absolute inset-0 bg-slate-950/45 dark:bg-slate-950/60 z-0 transition-colors duration-500 group-hover:bg-slate-950/40" />
+
+                {/* Centered White Glassmorphic Card (Matches the search bar container concept) */}
+                <CardContent className="w-full max-w-xl mx-auto p-8 md:p-12 flex flex-col items-center relative z-10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-white/20 rounded-[2.5rem] shadow-2xl text-center">
+                  <div className="relative mb-8 group-hover:scale-105 transition-transform duration-500">
+                    <div className="absolute inset-0 bg-purple-500/10 blur-2xl scale-125" />
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center relative z-10 shadow-lg">
+                      <Camera className="w-8 h-8 text-white" />
                     </div>
                   </div>
                   
-                  <h3 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Upload Source Photo</h3>
-                  <p className="text-slate-500 mb-10 text-center max-w-sm font-medium">Use a high-quality photo of your pet facing the camera for maximum identity accuracy.</p>
+                  <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">Upload Source Photo</h3>
+                  <p className="text-slate-500 dark:text-slate-400 mb-8 text-sm md:text-base max-w-sm font-semibold leading-relaxed">
+                    Use a high-quality photo of your pet facing the camera for maximum identity accuracy.
+                  </p>
                   
-                  <Button size="lg" className="h-16 px-10 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl gap-3 text-lg font-bold shadow-xl">
-                    <Upload className="w-5 h-5" />
+                  <Button size="lg" className="h-14 px-8 bg-slate-900 hover:bg-slate-800 text-white rounded-xl gap-2 text-base font-bold shadow-md hover:shadow-lg transition-all">
+                    <Upload className="w-4 h-4" />
                     Pick a Photo
                   </Button>
                   
