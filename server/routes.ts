@@ -2281,7 +2281,7 @@ Always respond in valid JSON format.`
 
       const stylePrompt = stylePrompts[style] || stylePrompts["watercolor"];
 
-      /*
+      // OpenAI Vision API Call to extract pet details
       const visionResponse = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -2305,13 +2305,13 @@ Always respond in valid JSON format.`
       });
 
       const petDescription = visionResponse.choices[0]?.message?.content || "a cute pet";
-      */
 
+      /*
       // Gemini Vision API Call
       if (!process.env.GEMINI_API_KEY) {
         throw new Error("Gemini API key is not configured");
       }
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const base64Parts = imageBase64.split(",");
       const base64Data = base64Parts[1] || base64Parts[0];
       const mimeType = imageBase64.startsWith("data:") 
@@ -2328,6 +2328,7 @@ Always respond in valid JSON format.`
         }
       ]);
       const petDescription = result.response.text() || "a cute pet";
+      */
       
       if (petDescription.trim() === "ERROR_NO_ANIMAL") {
         throw new Error("No animal detected in the image. Please upload a clear photo of your animal.");
