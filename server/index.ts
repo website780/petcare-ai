@@ -1,4 +1,6 @@
+import "./instrument.js";
 import express, { type Request, Response, NextFunction } from "express";
+import * as Sentry from "@sentry/node";
 import { registerRoutes } from "./routes.js";
 import { setupVite, serveStatic, log } from "./vite.js";
 import compression from "compression";
@@ -58,6 +60,20 @@ app.use((req, res, next) => {
       }
 
       log(logLine);
+
+      // Alert Sentry on any 500 error returned by API routes
+      if (res.statusCode >= 500) {
+        const detail = capturedJsonResponse?.details || capturedJsonResponse?.error || capturedJsonResponse?.message;
+        Sentry.captureMessage(`[API ${res.statusCode}] ${req.method} ${path}${detail ? `: ${detail}` : ""}`, {
+          level: "error",
+          extra: {
+            method: req.method,
+            path,
+            statusCode: res.statusCode,
+            response: capturedJsonResponse,
+          },
+        });
+      }
     }
   });
 
@@ -73,8 +89,16 @@ app.use((req, res, next) => {
   if (!stripeKey) log("WARNING: STRIPE_SECRET_KEY is not set!");
   if (!stripeLink) log("WARNING: STRIPE_LINK_INJURY is not set!");
   if (stripeKey && stripeLink) log("SUCCESS: Stripe configuration loaded for primary features.");
+  if (process.env.SENTRY_DSN) {
+    log("SUCCESS: Sentry error monitoring initialized.");
+  } else {
+    log("WARNING: SENTRY_DSN is not set! Errors will not be reported to Sentry.");
+  }
 
   const server = registerRoutes(app);
+
+  // Sentry error handler must be registered before other error handlers
+  Sentry.setupExpressErrorHandler(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     if (err.type === 'entity.too.large') {
