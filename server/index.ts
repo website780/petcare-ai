@@ -44,6 +44,28 @@ app.use((req, res, next) => {
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;
+
+    // Serverless (Vercel) fix: Flush Sentry events before sending response so container doesn't freeze
+    if (res.statusCode >= 500) {
+      const detail = bodyJson?.details || bodyJson?.error || bodyJson?.message;
+      Sentry.captureMessage(`[API ${res.statusCode}] ${req.method} ${path}${detail ? `: ${detail}` : ""}`, {
+        level: "error",
+        extra: {
+          method: req.method,
+          path,
+          statusCode: res.statusCode,
+          response: bodyJson,
+        },
+      });
+
+      Sentry.flush(2000)
+        .catch(() => {})
+        .finally(() => {
+          originalResJson.apply(res, [bodyJson, ...args]);
+        });
+      return res;
+    }
+
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
 
@@ -60,20 +82,6 @@ app.use((req, res, next) => {
       }
 
       log(logLine);
-
-      // Alert Sentry on any 500 error returned by API routes
-      if (res.statusCode >= 500) {
-        const detail = capturedJsonResponse?.details || capturedJsonResponse?.error || capturedJsonResponse?.message;
-        Sentry.captureMessage(`[API ${res.statusCode}] ${req.method} ${path}${detail ? `: ${detail}` : ""}`, {
-          level: "error",
-          extra: {
-            method: req.method,
-            path,
-            statusCode: res.statusCode,
-            response: capturedJsonResponse,
-          },
-        });
-      }
     }
   });
 
